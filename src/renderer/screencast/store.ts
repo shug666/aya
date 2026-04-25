@@ -12,6 +12,8 @@ class Store extends BaseStore {
   settings = defaultSettings
   screenOff = false
   recording = false
+  recordingDuration = 0
+  private recordingTimer: ReturnType<typeof setInterval> | null = null
   constructor() {
     super()
 
@@ -21,6 +23,7 @@ class Store extends BaseStore {
       device: observable,
       screenOff: observable,
       recording: observable,
+      recordingDuration: observable,
       setAlwaysOnTop: action,
       turnOnScreen: action,
       turnOffScreen: action,
@@ -46,10 +49,21 @@ class Store extends BaseStore {
   }
   startRecording() {
     this.recording = true
+    this.recordingDuration = 0
     this.scrcpyClient.startRecording()
+    this.recordingTimer = setInterval(() => {
+      runInAction(() => {
+        this.recordingDuration++
+      })
+    }, 1000)
   }
   stopRecording() {
     this.recording = false
+    if (this.recordingTimer) {
+      clearInterval(this.recordingTimer)
+      this.recordingTimer = null
+    }
+    this.recordingDuration = 0
     this.scrcpyClient.stopRecording()
   }
   async setDevice(device: IDevice | null) {

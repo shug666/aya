@@ -15,6 +15,17 @@ import { AndroidKeyCode } from '@yume-chan/scrcpy'
 import LunaModal from 'luna-modal'
 import dateFormat from 'licia/dateFormat'
 
+function formatDuration(seconds: number): string {
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const s = seconds % 60
+  return [
+    h.toString().padStart(2, '0'),
+    m.toString().padStart(2, '0'),
+    s.toString().padStart(2, '0'),
+  ].join(':')
+}
+
 export default observer(function Toolbar() {
   const [settingsModalVisiable, setSettingsModalVisiable] = useState(false)
 
@@ -107,6 +118,11 @@ export default observer(function Toolbar() {
             }
           }}
         />
+        {store.recording && (
+          <span className={Style.recordingTimer}>
+            {formatDuration(store.recordingDuration)}
+          </span>
+        )}
         <LunaToolbarSeparator />
         <ToolbarIcon
           icon="pin"

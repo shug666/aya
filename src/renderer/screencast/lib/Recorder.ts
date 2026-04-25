@@ -7,7 +7,7 @@ import {
   ScrcpyVideoCodecId,
   ScrcpyVideoStreamMetadata,
 } from '@yume-chan/scrcpy'
-import { ArrayBufferTarget, Muxer as WebMMuxer } from 'webm-muxer'
+import { ArrayBufferTarget, Muxer as Mp4Muxer } from 'mp4-muxer'
 import log from 'share/common/log'
 
 const logger = log('Recorder')
@@ -60,17 +60,15 @@ function h264StreamToAvcSample(buffer: Uint8Array) {
   return sample
 }
 
-// https://github.com/FFmpeg/FFmpeg/blob/adb5f7b41faf354a3e0bf722f44aeb230aefa310/libavformat/matroska.c
-const MatroskaVideoCodecNameMap: Record<ScrcpyVideoCodecId, string> = {
-  [ScrcpyVideoCodecId.H264]: 'V_MPEG4/ISO/AVC',
-  [ScrcpyVideoCodecId.H265]: 'V_MPEGH/ISO/HEVC',
-  [ScrcpyVideoCodecId.AV1]: 'V_AV1',
+const Mp4VideoCodecMap: Record<ScrcpyVideoCodecId, string> = {
+  [ScrcpyVideoCodecId.H264]: 'avc',
+  [ScrcpyVideoCodecId.H265]: 'hevc',
+  [ScrcpyVideoCodecId.AV1]: 'av1',
 }
 
-const MatroskaAudioCodecNameMap: Record<string, string> = {
-  [ScrcpyAudioCodec.Raw.mimeType]: 'A_PCM/INT/LIT',
-  [ScrcpyAudioCodec.Aac.mimeType]: 'A_AAC',
-  [ScrcpyAudioCodec.Opus.mimeType]: 'A_OPUS',
+const Mp4AudioCodecMap: Record<string, string> = {
+  [ScrcpyAudioCodec.Aac.mimeType]: 'aac',
+  [ScrcpyAudioCodec.Opus.mimeType]: 'opus',
 }
 
 // https://github.com/tango-adb/old-demo/blob/main/packages/demo/src/components/scrcpy/recorder.ts
@@ -78,10 +76,12 @@ export default class Recorder {
   running = false
   videoMetadata?: ScrcpyVideoStreamMetadata
   audioCodec?: ScrcpyAudioCodec
-  private muxer?: WebMMuxer<ArrayBufferTarget>
+  private muxer?: Mp4Muxer<ArrayBufferTarget>
   private videoCodecDescription?: Uint8Array
   private configurationWritten = false
   private _firstTimestamp = -1
+  private _lastVideoTimestamp = -1
+  private _lastAudioTimestamp = -1
   start() {
     if (!this.videoMetadata) {
       throw new Error('videoMetadata must be set')
@@ -89,27 +89,29 @@ export default class Recorder {
 
     this.running = true
 
-    const options: ConstructorParameters<typeof WebMMuxer>[0] = {
+    const options: ConstructorParameters<typeof Mp4Muxer>[0] = {
       target: new ArrayBufferTarget(),
-      type: 'matroska',
-      firstTimestampBehavior: 'permissive',
+      fastStart: 'in-memory',
+      firstTimestampBehavior: 'offset',
       video: {
-        codec: MatroskaVideoCodecNameMap[this.videoMetadata.codec!],
+        codec: Mp4VideoCodecMap[this.videoMetadata.codec!] as any,
         width: this.videoMetadata.width ?? 0,
         height: this.videoMetadata.height ?? 0,
       },
     }
 
     if (this.audioCodec) {
-      options.audio = {
-        codec: MatroskaAudioCodecNameMap[this.audioCodec.mimeType!],
-        sampleRate: 48000,
-        numberOfChannels: 2,
-        bitDepth: this.audioCodec === ScrcpyAudioCodec.Raw ? 16 : undefined,
+      const mp4AudioCodec = Mp4AudioCodecMap[this.audioCodec.mimeType!]
+      if (mp4AudioCodec) {
+        options.audio = {
+          codec: mp4AudioCodec as any,
+          sampleRate: 48000,
+          numberOfChannels: 2,
+        }
       }
     }
 
-    this.muxer = new WebMMuxer(options as any)
+    this.muxer = new Mp4Muxer(options as any)
   }
   stop() {
     if (!this.muxer) {
@@ -124,6 +126,8 @@ export default class Recorder {
     this.configurationWritten = false
     this.running = false
     this._firstTimestamp = -1
+    this._lastVideoTimestamp = -1
+    this._lastAudioTimestamp = -1
 
     return buf
   }
@@ -163,11 +167,17 @@ export default class Recorder {
       this._firstTimestamp = Number(packet.pts!)
     }
 
+    const timestamp = Number(packet.pts) - this._firstTimestamp
+    const duration =
+      this._lastVideoTimestamp >= 0 ? timestamp - this._lastVideoTimestamp : 0
+    this._lastVideoTimestamp = timestamp
+
     const sample = h264StreamToAvcSample(packet.data)
     this.muxer!.addVideoChunkRaw(
       sample,
       packet.keyframe ? 'key' : 'delta',
-      Number(packet.pts) - this._firstTimestamp,
+      timestamp,
+      duration,
       this.configurationWritten
         ? undefined
         : {
@@ -193,6 +203,10 @@ export default class Recorder {
       return
     }
 
-    this.muxer.addAudioChunkRaw(chunk.data, 'key', timestamp)
+    const duration =
+      this._lastAudioTimestamp >= 0 ? timestamp - this._lastAudioTimestamp : 0
+    this._lastAudioTimestamp = timestamp
+
+    this.muxer.addAudioChunkRaw(chunk.data, 'key', timestamp, duration)
   }
 }
