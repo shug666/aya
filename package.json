@@ -31,7 +31,11 @@
   "keywords": [
     "adb"
   ],
-  "author": "surunzi",
+  "homepage": "https://github.com/shug666/aya",
+  "author": {
+    "name": "surunzi",
+    "email": "surunzi@github.com"
+  },
   "license": "AGPL-3.0",
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.689.0",
