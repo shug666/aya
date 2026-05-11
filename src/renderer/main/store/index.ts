@@ -8,6 +8,7 @@ import { Process } from './process'
 import { Webview } from './webview'
 import { File } from './file'
 import { Layout } from './layout'
+import { Perfetto } from './perfetto'
 import { installPackages, setMainStore } from '../../lib/util'
 import { setMemStore } from 'share/renderer/lib/util'
 import isEmpty from 'licia/isEmpty'
@@ -23,6 +24,7 @@ class Store extends BaseStore {
   webview = new Webview()
   file = new File()
   layout = new Layout()
+  perfetto = new Perfetto()
   ready = false
   constructor() {
     super()

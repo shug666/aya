@@ -29,6 +29,7 @@ import * as packageAdb from './adb/package'
 import * as file from './adb/file'
 import * as fps from './adb/fps'
 import * as webview from './adb/webview'
+import * as perfetto from './adb/perfetto'
 import * as port from './adb/port'
 import { getCpuLoads, getCpus, getCpuTemperature } from './adb/cpu'
 import log from 'share/common/log'
@@ -415,6 +416,7 @@ export async function init() {
   file.init(client)
   fps.init()
   webview.init()
+  perfetto.init()
   port.init(client)
 
   handleEvent('getDevices', getDevices)

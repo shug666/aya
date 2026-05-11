@@ -214,5 +214,7 @@
   "pairDevice": "Parear novos dispositivos via Wi-Fi",
   "pairingCode": "Código de Pareamento",
   "enabled": "Ativado",
-  "disabled": "Desativado"
+  "disabled": "Desativado",
+  "maxFps": "FPS Máximo",
+  "unlimited": "Sem limite"
 }

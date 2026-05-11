@@ -215,5 +215,7 @@
   "pairingCode": "Код сопряжения",
   "enabled": "Включено",
   "disabled": "Отключено",
-  "storageUsage": "Использование хранилища"
+  "storageUsage": "Использование хранилища",
+  "maxFps": "Макс. FPS",
+  "unlimited": "Без ограничений"
 }

@@ -147,6 +147,12 @@ export type IpcGetPackages = (
   deviceId: string,
   system?: boolean
 ) => Promise<string[]>
+export type IpcExportApks = (
+  deviceId: string,
+  pkg: string,
+  dest: string,
+  folderName: string
+) => Promise<void>
 export type IpcInstallPackage = (
   deviceId: string,
   apkPath: string
@@ -167,8 +173,26 @@ export type IpcGetWebviews = (
   pid: number
 ) => Promise<IWebview[]>
 export type IpcGetProcesses = (deviceId: string) => Promise<IProcess[]>
+export interface IPerfettoTraceConfig {
+  deviceId: string
+  outputPath: string
+  time: string
+  buffer: string
+  events: string[]
+  app: string
+  traceAllApps: boolean
+  noOpen: boolean
+}
+
+export type IpcStartPerfettoTrace = (
+  config: IPerfettoTraceConfig
+) => Promise<string>
+export type IpcStopPerfettoTrace = (sessionId: string) => Promise<void>
+
 export type IpcGetFileUrl = (
   deviceId: string,
   path: string,
   port?: number
 ) => Promise<string>
+export type IpcStartGnirehtet = (deviceId: string) => Promise<void>
+export type IpcStopGnirehtet = (deviceId: string) => Promise<void>

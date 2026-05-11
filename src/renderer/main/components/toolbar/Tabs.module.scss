@@ -1,4 +1,7 @@
 .container {
   flex: 1;
   width: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
 }

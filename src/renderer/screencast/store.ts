@@ -13,7 +13,10 @@ class Store extends BaseStore {
   screenOff = false
   recording = false
   recordingDuration = 0
+  isCountdownActive = false
+  countdownSeconds = 0
   private recordingTimer: ReturnType<typeof setInterval> | null = null
+  private countdownTimer: ReturnType<typeof setInterval> | null = null
   constructor() {
     super()
 
@@ -24,11 +27,15 @@ class Store extends BaseStore {
       screenOff: observable,
       recording: observable,
       recordingDuration: observable,
+      isCountdownActive: observable,
+      countdownSeconds: observable,
       setAlwaysOnTop: action,
       turnOnScreen: action,
       turnOffScreen: action,
       startRecording: action,
       stopRecording: action,
+      cancelCountdown: action,
+      executeStartRecording: action,
     })
 
     this.init()
@@ -48,6 +55,31 @@ class Store extends BaseStore {
     this.scrcpyClient.turnOffScreen()
   }
   startRecording() {
+    if (this.isCountdownActive) {
+      this.cancelCountdown()
+      return
+    }
+    this.isCountdownActive = true
+    this.countdownSeconds = 3
+
+    this.countdownTimer = setInterval(() => {
+      runInAction(() => {
+        this.countdownSeconds--
+        if (this.countdownSeconds <= 0) {
+          this.cancelCountdown()
+          this.executeStartRecording()
+        }
+      })
+    }, 1000)
+  }
+  cancelCountdown() {
+    this.isCountdownActive = false
+    if (this.countdownTimer) {
+      clearInterval(this.countdownTimer)
+      this.countdownTimer = null
+    }
+  }
+  executeStartRecording() {
     this.recording = true
     this.recordingDuration = 0
     this.scrcpyClient.startRecording()
@@ -58,6 +90,7 @@ class Store extends BaseStore {
     }, 1000)
   }
   stopRecording() {
+    this.cancelCountdown()
     this.recording = false
     if (this.recordingTimer) {
       clearInterval(this.recordingTimer)
@@ -83,6 +116,7 @@ class Store extends BaseStore {
           audio: true,
           videoBitRate: settings.videoBitRate,
           maxSize: settings.maxSize,
+          maxFps: settings.maxFps,
           clipboardAutosync: true,
           stayAwake: true,
         })
@@ -131,6 +165,7 @@ class Store extends BaseStore {
 const defaultSettings = {
   videoBitRate: 8000000,
   maxSize: 0,
+  maxFps: 0,
 }
 
 export default new Store()

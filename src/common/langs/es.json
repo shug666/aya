@@ -176,5 +176,7 @@
   "pairingCode": "Código de emparejamiento",
   "enabled": "Habilitado",
   "disabled": "Deshabilitado",
-  "storageUsage": "Uso de Almacenamiento"
+  "storageUsage": "Uso de Almacenamiento",
+  "maxFps": "FPS Máximo",
+  "unlimited": "Sin límite"
 }

@@ -17,6 +17,7 @@ import {
   IpcGetFps,
   IpcGetPackageInfos,
   IpcGetPackages,
+  IpcExportApks,
   IpcGetProcesses,
   IpcGetTopPackage,
   IpcGetWebviews,
@@ -48,6 +49,10 @@ import {
   IpcUninstallPackage,
   IpcWipeAvdData,
   IpcWriteShell,
+  IpcStartPerfettoTrace,
+  IpcStopPerfettoTrace,
+  IpcStartGnirehtet,
+  IpcStopGnirehtet,
 } from 'common/types'
 import { IpcGetStore, IpcSetStore } from 'share/common/types'
 import mainObj from 'share/preload/main'
@@ -93,6 +98,7 @@ export default Object.assign(mainObj, {
   installPackage: invoke<IpcInstallPackage>('installPackage'),
   uninstallPackage: invoke<IpcUninstallPackage>('uninstallPackage'),
   getPackages: invoke<IpcGetPackages>('getPackages'),
+  exportApks: invoke<IpcExportApks>('exportApks'),
   getPackageInfos: invoke<IpcGetPackageInfos>('getPackageInfos'),
   disablePackage: invoke<IpcDisablePackage>('disablePackage'),
   enablePackage: invoke<IpcEnablePackage>('enablePackage'),
@@ -125,4 +131,8 @@ export default Object.assign(mainObj, {
   restartAdbServer: invoke('restartAdbServer'),
   pairDevice: invoke<IpcPairDevice>('pairDevice'),
   getFileUrl: invoke<IpcGetFileUrl>('getFileUrl'),
+  startPerfettoTrace: invoke<IpcStartPerfettoTrace>('startPerfettoTrace'),
+  stopPerfettoTrace: invoke<IpcStopPerfettoTrace>('stopPerfettoTrace'),
+  startGnirehtet: invoke<IpcStartGnirehtet>('startGnirehtet'),
+  stopGnirehtet: invoke<IpcStopGnirehtet>('stopGnirehtet'),
 })

@@ -18,6 +18,8 @@ export default observer(function Panels() {
       'screenshot',
       'logcat',
       'webview',
+      'perfetto',
+      'gnirehtet',
     ],
     (panel) => {
       return (

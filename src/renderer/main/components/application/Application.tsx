@@ -16,7 +16,7 @@ import store from '../../store'
 import { PannelLoading } from '../common/loading'
 import ToolbarIcon from 'share/renderer/components/ToolbarIcon'
 import { installPackages } from '../../../lib/util'
-import { notify, isFileDrop } from 'share/renderer/lib/util'
+import { notify, isFileDrop, withTimeout } from 'share/renderer/lib/util'
 import { t } from 'common/util'
 import className from 'licia/className'
 import endWith from 'licia/endWith'
@@ -60,7 +60,7 @@ export default observer(function Application() {
 
   useEffect(() => {
     refresh()
-  }, [])
+  }, [device])
   useWindowResize(() => dataGridRef.current?.fit())
 
   async function refresh(packageName?: string) {
@@ -70,59 +70,69 @@ export default observer(function Application() {
     if (!packageName) {
       setPackageInfos([])
       setIsLoading(true)
-      const packages = await main.getPackages(
-        device.id,
-        store.application.sysPackage
-      )
-      const chunks = chunk(packages, 50)
-      let packageInfos: any[] = []
-      for (let i = 0, len = chunks.length; i < len; i++) {
-        const chunk = chunks[i]
-        packageInfos = concat(
+    }
+
+    try {
+      if (!packageName) {
+        const packages = await withTimeout(main.getPackages(
+          device.id,
+          store.application.sysPackage
+        ))
+        const chunks = chunk(packages, 50)
+        let packageInfos: any[] = []
+        for (let i = 0, len = chunks.length; i < len; i++) {
+          const chunk = chunks[i]
+          packageInfos = concat(
+            packageInfos,
+            await withTimeout(main.getPackageInfos(device.id, chunk))
+          )
+          iconsRef.current = map(packageInfos, (info) => {
+            const style: any = {
+              borderRadius: '20%',
+            }
+            if (!info.enabled) {
+              style.filter = 'grayscale(100%)'
+            }
+
+            return {
+              info: info,
+              src: info.icon || defaultIcon,
+              name: info.label,
+              style,
+            }
+          })
+          setPackageInfos(packageInfos)
+        }
+      } else {
+        const idx = findIdx(
           packageInfos,
-          await main.getPackageInfos(device.id, chunk)
+          (info) => info.packageName === packageName
         )
-        iconsRef.current = map(packageInfos, (info) => {
+        if (idx !== -1) {
+          const infos = await withTimeout(main.getPackageInfos(device.id, [packageName]))
+          const info = infos[0]
+          packageInfos[idx] = info
           const style: any = {
             borderRadius: '20%',
           }
           if (!info.enabled) {
             style.filter = 'grayscale(100%)'
           }
-
-          return {
+          iconsRef.current[idx] = {
             info: info,
             src: info.icon || defaultIcon,
             name: info.label,
             style,
           }
-        })
-        setPackageInfos(packageInfos)
+          iconsRef.current = clone(iconsRef.current)
+          setPackageInfos(clone(packageInfos))
+        }
       }
-      setIsLoading(false)
-    } else {
-      const idx = findIdx(
-        packageInfos,
-        (info) => info.packageName === packageName
-      )
-      if (idx !== -1) {
-        const infos = await main.getPackageInfos(device.id, [packageName])
-        const info = infos[0]
-        packageInfos[idx] = info
-        const style: any = {
-          borderRadius: '20%',
-        }
-        if (!info.enabled) {
-          style.filter = 'grayscale(100%)'
-        }
-        iconsRef.current[idx] = {
-          info: info,
-          src: info.icon || defaultIcon,
-          name: info.label,
-          style,
-        }
-        iconsRef.current = clone(iconsRef.current)
-        setPackageInfos(clone(packageInfos))
+    } catch (e: any) {
+      notify(e.message || 'Error', { icon: 'error' })
+    } finally {
+      if (!packageName) {
+        setIsLoading(false)
       }
     }
   }
@@ -191,17 +201,27 @@ export default observer(function Application() {
       {
         label: t('exportApk'),
         click: async () => {
-          const { canceled, filePath } = await main.showSaveDialog({
-            defaultPath: `${info.packageName}-${info.versionName}.apk`,
+          const { canceled, filePaths } = await main.showOpenDialog({
+            properties: ['openDirectory', 'createDirectory'],
           })
-          if (canceled) {
+          if (canceled || !filePaths || filePaths.length === 0) {
             return
           }
-          await main.pullFile(device.id, info.apkPath, filePath)
-          notify(t('apkExported', { path: filePath }), {
-            icon: 'success',
-            duration: 5000,
-          })
+          
+          setIsLoading(true)
+          const dirPath = filePaths[0]
+          const folderName = `${info.packageName}_${dateFormat(new Date(), 'yyyymmdd_HHMMss')}`
+          try {
+            await main.exportApks(device.id, info.packageName, dirPath, folderName)
+            notify(t('apkExported', { path: dirPath + '/' + folderName }), {
+              icon: 'success',
+              duration: 5000,
+            })
+          } catch (e: any) {
+            notify(e.message || 'Export failed', { icon: 'error' })
+          } finally {
+            setIsLoading(false)
+          }
         },
       },
       {

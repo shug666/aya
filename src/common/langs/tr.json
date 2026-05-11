@@ -214,5 +214,7 @@
   "pairDevice": "Wi-Fi üzerinden yeni cihazları eşleştir",
   "pairingCode": "Eşleştirme Kodu",
   "enabled": "Etkin",
-  "disabled": "Devre Dışı"
+  "disabled": "Devre Dışı",
+  "maxFps": "Maks. FPS",
+  "unlimited": "Sınırsız"
 }

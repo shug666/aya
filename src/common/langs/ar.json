@@ -115,5 +115,7 @@
   "deviceRefreshed": "تم تحديث الجهاو",
   "ipAddress": "IP عوان الـ",
   "macAddress": "MAC عنوان الـ",
-  "signature": "التوقيع"
+  "signature": "التوقيع",
+  "maxFps": "الحد الأقصى لمعدل الإطارات",
+  "unlimited": "غير محدود"
 }

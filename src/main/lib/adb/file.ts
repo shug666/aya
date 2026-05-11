@@ -41,7 +41,7 @@ const waitFileSemaphore = function (): Promise<void> {
   })
 }
 
-const pullFile: IpcPullFile = async function (deviceId, src, dest) {
+export const pullFile: IpcPullFile = async function (deviceId, src, dest) {
   const stat = await statFile(deviceId, src)
 
   if (stat.directory) {

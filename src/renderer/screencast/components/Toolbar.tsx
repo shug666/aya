@@ -109,7 +109,7 @@ export default observer(function Toolbar() {
         <ToolbarIcon
           icon="video-recorder"
           title={t('screenRecording')}
-          state={store.recording ? 'hover' : ''}
+          state={store.recording || store.isCountdownActive ? 'hover' : ''}
           onClick={() => {
             if (store.recording) {
               store.stopRecording()

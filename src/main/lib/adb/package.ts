@@ -4,6 +4,9 @@ import singleton from 'licia/singleton'
 import map from 'licia/map'
 import trim from 'licia/trim'
 import contain from 'licia/contain'
+import fs from 'fs'
+import path from 'path'
+import { pullFile } from './file'
 import { handleEvent } from 'share/main/lib/util'
 import {
   IpcClearPackage,
@@ -11,6 +14,7 @@ import {
   IpcEnablePackage,
   IpcGetPackages,
   IpcGetTopPackage,
+  IpcExportApks,
   IpcInstallPackage,
   IpcStartPackage,
   IpcStopPackage,
@@ -58,6 +62,64 @@ const startPackage: IpcStartPackage = async function (deviceId, pkg) {
 const installPackage: IpcInstallPackage = async function (deviceId, apkPath) {
   const device = await client.getDevice(deviceId)
   await device.install(apkPath)
+}
+
+const exportApks: IpcExportApks = async function (deviceId, pkg, destDir, folderName) {
+  const finalDestDir = path.join(destDir, folderName)
+  fs.mkdirSync(finalDestDir, { recursive: true })
+  
+  const result = await shell(deviceId, `pm path ${pkg}`)
+  const lines = result.split('\n').map((l: string) => trim(l)).filter((l: string) => l.startsWith('package:'))
+  const paths = lines.map((l: string) => l.replace('package:', ''))
+  
+  if (paths.length === 0) {
+    throw new Error('No APK paths found for package ' + pkg)
+  }
+
+  const filenames: string[] = []
+  
+  for (let i = 0; i < paths.length; i++) {
+    const p = paths[i]
+    let filename = p.split('/').pop() || `unknown_${i}.apk`
+    if (!filename.endsWith('.apk')) {
+      filename += '.apk'
+    }
+    filenames.push(filename)
+    await pullFile(deviceId, p, path.join(finalDestDir, filename))
+  }
+
+  // Create install.sh
+  const shScript = `#!/bin/bash
+echo "Installing ${pkg}..."
+adb install-multiple ${filenames.map(f => `"${f}"`).join(' ')}
+echo "Done."
+`
+  fs.writeFileSync(path.join(finalDestDir, 'install.sh'), shScript)
+  fs.chmodSync(path.join(finalDestDir, 'install.sh'), 0o755)
+
+  // Create install.bat
+  const batScript = `@echo off
+echo Installing ${pkg}...
+adb install-multiple ${filenames.map(f => `"${f}"`).join(' ')}
+echo Done.
+pause
+`
+  fs.writeFileSync(path.join(finalDestDir, 'install.bat'), batScript)
+
+  // Create README.txt
+  const readme = `APK Export for ${pkg}
+===================
+
+This directory contains the split APKs for the application.
+To install this application on a device, ensure \`adb\` is in your system PATH and the device is connected.
+
+For Windows:
+Double-click \`install.bat\` or run it from the command line.
+
+For Mac/Linux:
+Run \`./install.sh\` from the command line.
+`
+  fs.writeFileSync(path.join(finalDestDir, 'README.txt'), readme)
 }
 
 const uninstallPackage: IpcUninstallPackage = async function (deviceId, pkg) {
@@ -129,6 +191,7 @@ export async function init(c: Client) {
   handleEvent('getPackages', getPackages)
   handleEvent('stopPackage', stopPackage)
   handleEvent('startPackage', startPackage)
+  handleEvent('exportApks', exportApks)
   handleEvent('installPackage', installPackage)
   handleEvent('uninstallPackage', uninstallPackage)
   handleEvent('getTopPackage', getTopPackage)

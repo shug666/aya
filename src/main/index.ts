@@ -4,6 +4,7 @@ import * as main from './window/main'
 import * as adb from './lib/adb'
 import * as terminal from 'share/main/window/terminal'
 import * as window from 'share/main/lib/window'
+import * as gnirehtet from './lib/gnirehtet'
 import log from 'share/common/log'
 import { getSettingsStore } from './lib/store'
 import 'share/main'
@@ -21,6 +22,7 @@ app.on('ready', () => {
 
   terminal.init()
   adb.init()
+  gnirehtet.init()
   main.showWin()
   menu.init()
 })

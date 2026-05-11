@@ -212,5 +212,7 @@
   "adbServerRestarted": "ADB 服務已重啟",
   "pair": "配對",
   "pairDevice": "通過 Wi-Fi 配對新設備",
-  "pairingCode": "配對碼"
+  "pairingCode": "配對碼",
+  "maxFps": "最大幀率",
+  "unlimited": "不限制"
 }

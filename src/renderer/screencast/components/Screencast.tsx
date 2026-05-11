@@ -48,6 +48,11 @@ export default observer(function Screencast() {
       onDragOver={(e) => e.preventDefault()}
     >
       {isLoading && <LoadingBar />}
+      {store.isCountdownActive && (
+        <div className={Style.countdownOverlay}>
+          <div className={Style.countdownNumber}>{store.countdownSeconds}</div>
+        </div>
+      )}
     </div>
   )
 })

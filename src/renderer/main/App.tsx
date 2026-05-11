@@ -9,6 +9,8 @@ import Webview from './components/webview/Webview'
 import Application from './components/application/Application'
 import File from './components/file/File'
 import Layout from './components/layout/Layout'
+import Perfetto from './components/perfetto/Perfetto'
+import Gnirehtet from './components/gnirehtet/Gnirehtet'
 import Style from './App.module.scss'
 import { useState, PropsWithChildren, FC } from 'react'
 import store from './store'
@@ -56,6 +58,12 @@ export default observer(function App() {
             </Panel>
             <Panel panel="layout">
               <Layout />
+            </Panel>
+            <Panel panel="perfetto">
+              <Perfetto />
+            </Panel>
+            <Panel panel="gnirehtet">
+              <Gnirehtet />
             </Panel>
           </div>
         </div>

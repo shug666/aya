@@ -45,8 +45,14 @@ class AyaClient {
       }).finish()
     )
 
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       this.resolves.set(id, resolve)
+      setTimeout(() => {
+        if (this.resolves.has(id)) {
+          this.resolves.delete(id)
+          reject(new Error('AyaClient sendMessage timeout'))
+        }
+      }, 15000)
     })
   }
   private async connect(tryStart = true) {

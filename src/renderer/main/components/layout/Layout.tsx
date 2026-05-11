@@ -8,6 +8,7 @@ import LunaToolbar, {
 import { observer } from 'mobx-react-lite'
 import ToolbarIcon from 'share/renderer/components/ToolbarIcon'
 import { t } from 'common/util'
+import { notify, withTimeout } from 'share/renderer/lib/util'
 import Style from './Layout.module.scss'
 import Tree from './Tree'
 import Detail from './Detail'
@@ -49,7 +50,7 @@ export default observer(function Layout() {
 
   useEffect(() => {
     refresh()
-  }, [])
+  }, [device])
 
   async function refresh() {
     if (!device || isLoading) {
@@ -57,22 +58,27 @@ export default observer(function Layout() {
     }
 
     setIsLoading(true)
-    const data = await main.screencap(device.id)
-    const url = dataUrl.stringify(data, 'image/png')
-    setHierarchy(null)
-    setSelected(null)
-    loadImg(url, (err, img) => {
-      setImage({
-        url,
-        width: img.width,
-        height: img.height,
+    try {
+      const data = await withTimeout(main.screencap(device.id))
+      const url = dataUrl.stringify(data, 'image/png')
+      setHierarchy(null)
+      setSelected(null)
+      loadImg(url, (err, img) => {
+        setImage({
+          url,
+          width: img.width,
+          height: img.height,
+        })
       })
-    })
-    windowHierarchyRef.current = await main.dumpWindowHierarchy(device.id)
-    const doc = xmlToDom(windowHierarchyRef.current)
-    transformHierarchy(doc, windowHierarchyRef.current)
-    setHierarchy(doc)
-    setIsLoading(false)
+      windowHierarchyRef.current = await withTimeout(main.dumpWindowHierarchy(device.id))
+      const doc = xmlToDom(windowHierarchyRef.current)
+      transformHierarchy(doc, windowHierarchyRef.current)
+      setHierarchy(doc)
+    } catch (e: any) {
+      notify(e.message || 'Error', { icon: 'error' })
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   function save() {
@@ -272,11 +278,6 @@ function transformHierarchy(hierarchy: Document, windowHierarchy: string) {
       el.appendChild(hierarchy.createTextNode(text))
     } else {
       each(el.childNodes, (child) => transformRecursively(child as Element))
-      // for xpath
-      ;(el as any).children = filter(
-        el.childNodes,
-        (child) => child.nodeType === 1
-      )
     }
   }
 
