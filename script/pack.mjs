@@ -32,7 +32,18 @@ const config = {
     target: [
       {
         target: 'nsis',
+        arch: ['x64']
       },
+    ],
+  },
+  linux: {
+    target: [
+      {
+        target: 'deb'
+      },
+      {
+        target: 'AppImage'
+      }
     ],
   },
   mac: {

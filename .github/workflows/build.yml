@@ -46,6 +46,7 @@ jobs:
         path: |
           release/**/*.dmg
           release/**/*.exe
+          release/**/*.deb
           release/**/*.AppImage
           release/**/*-lates*.yml
           !release/**/win-unpacked/
