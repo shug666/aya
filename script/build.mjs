@@ -1,5 +1,7 @@
 const pkg = await fs.readJson('package.json')
 const electron = pkg.devDependencies.electron
+const homepage = pkg.homepage
+const author = pkg.author
 delete pkg.devDependencies
 pkg.devDependencies = {
   electron,
@@ -9,6 +11,8 @@ pkg.scripts = {
   start: 'electron main/index.js',
 }
 pkg.main = 'main/index.js'
+if (homepage) pkg.homepage = homepage
+if (author) pkg.author = author
 
 await $`npm run build:main`
 await $`npm run build:preload`

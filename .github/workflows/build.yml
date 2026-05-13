@@ -27,7 +27,7 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
     - uses: android-actions/setup-android@v3
-    - if: matrix.os == 'ubuntu'
+    - if: contains(matrix.os, 'ubuntu')
       run: |
         sudo apt-get install --no-install-recommends -y icnsutils graphicsmagick xz-utils
     - run: |
