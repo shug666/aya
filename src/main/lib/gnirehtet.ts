@@ -2,6 +2,7 @@ import { app } from 'electron'
 import { spawn, ChildProcess, execFile, exec } from 'child_process'
 import path from 'path'
 import { handleEvent, resolveResources } from 'share/main/lib/util'
+import { getAdbPath } from './adb/base'
 import { IpcStartGnirehtet, IpcStopGnirehtet } from 'common/types'
 import log from 'share/common/log'
 
@@ -39,10 +40,14 @@ const startGnirehtet: IpcStartGnirehtet = async function (deviceId: string) {
   // Ensure any orphaned relay server is killed before starting
   await killOrphanedRelay()
 
+  const adbDir = path.dirname(getAdbPath())
+  const env = { ...process.env, PATH: `${adbDir}${path.delimiter}${process.env.PATH || ''}` }
+
   let child: ChildProcess;
   try {
     child = spawn('java', ['-jar', 'gnirehtet.jar', 'run', deviceId], {
-      cwd: gnirehtetDir
+      cwd: gnirehtetDir,
+      env
     })
   } catch (err: any) {
     logger.error(`Spawn error: ${err.message}`)
@@ -78,8 +83,10 @@ const stopGnirehtet: IpcStopGnirehtet = async function (deviceId: string) {
   window.sendAll('gnirehtetOutput', deviceId, `Stopping gnirehtet for ${deviceId}...\n`)
   const gnirehtetDir = getGnirehtetDir()
   const scriptPath = path.join(gnirehtetDir, 'gnirehtet')
+  const adbDir = path.dirname(getAdbPath())
+  const env = { ...process.env, PATH: `${adbDir}${path.delimiter}${process.env.PATH || ''}` }
   
-  execFile('java', ['-jar', 'gnirehtet.jar', 'stop', deviceId], { cwd: gnirehtetDir }, (error, stdout, stderr) => {
+  execFile('java', ['-jar', 'gnirehtet.jar', 'stop', deviceId], { cwd: gnirehtetDir, env }, (error, stdout, stderr) => {
     if (error) {
       logger.error(`Failed to execute stop command: ${error.message}`)
       window.sendAll('gnirehtetOutput', deviceId, `Failed to execute stop command: ${error.message}\n`)

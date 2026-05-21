@@ -4,6 +4,7 @@ import path from 'node:path'
 import uniqId from 'licia/uniqId'
 import * as window from 'share/main/lib/window'
 import { handleEvent, resolveResources } from 'share/main/lib/util'
+import { getAdbPath } from './base'
 import log from 'share/common/log'
 import {
   IPerfettoTraceConfig,
@@ -66,8 +67,11 @@ const startPerfettoTrace: IpcStartPerfettoTrace = async function (config) {
 
   logger.info('start trace', scriptPath, args)
 
+  const adbDir = path.dirname(getAdbPath())
+  const env = { ...process.env, PATH: `${adbDir}${path.delimiter}${process.env.PATH || ''}` }
+
   const proc = childProcess.spawn('python3', [scriptPath, ...args], {
-    env: { ...process.env },
+    env,
     stdio: ['pipe', 'pipe', 'pipe'],
   })
 
