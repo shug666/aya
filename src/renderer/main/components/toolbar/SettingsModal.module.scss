@@ -4,3 +4,60 @@
     padding-right: 0;
   }
 }
+
+.tabManager {
+  padding: 4px 0;
+}
+
+.tabItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--color-border);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.tabLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 12px;
+
+  input[type='checkbox'] {
+    cursor: pointer;
+  }
+}
+
+.tabActions {
+  display: flex;
+  gap: 4px;
+}
+
+.tabBtn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--color-text);
+  padding: 0;
+
+  &:hover:not(:disabled) {
+    background: var(--color-bg-hover);
+  }
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+}

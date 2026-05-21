@@ -117,5 +117,9 @@
   "macAddress": "MAC عنوان الـ",
   "signature": "التوقيع",
   "maxFps": "الحد الأقصى لمعدل الإطارات",
-  "unlimited": "غير محدود"
+  "unlimited": "غير محدود",
+  "tabManagement": "Tab Management",
+  "moveUp": "Move Up",
+  "moveDown": "Move Down",
+  "noTabsEnabled": "No tabs enabled. Enable tabs in Settings."
 }

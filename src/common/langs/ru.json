@@ -217,5 +217,9 @@
   "disabled": "Отключено",
   "storageUsage": "Использование хранилища",
   "maxFps": "Макс. FPS",
-  "unlimited": "Без ограничений"
+  "unlimited": "Без ограничений",
+  "tabManagement": "Tab Management",
+  "moveUp": "Move Up",
+  "moveDown": "Move Down",
+  "noTabsEnabled": "No tabs enabled. Enable tabs in Settings."
 }

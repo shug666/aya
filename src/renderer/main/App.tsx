@@ -12,60 +12,60 @@ import Layout from './components/layout/Layout'
 import Perfetto from './components/perfetto/Perfetto'
 import Gnirehtet from './components/gnirehtet/Gnirehtet'
 import Style from './App.module.scss'
-import { useState, PropsWithChildren, FC } from 'react'
+import { useState, PropsWithChildren, FC, ComponentType } from 'react'
 import store from './store'
 import { observer } from 'mobx-react-lite'
 import { useCheckUpdate } from 'share/renderer/lib/hooks'
+import { t } from 'common/util'
+import find from 'licia/find'
+import isEmpty from 'licia/isEmpty'
+import map from 'licia/map'
+
+const panelComponents: Record<string, ComponentType> = {
+  overview: Overview,
+  application: Application,
+  screenshot: Screenshot,
+  logcat: Logcat,
+  shell: Shell,
+  process: Process,
+  performance: Performance,
+  webview: Webview,
+  file: File,
+  layout: Layout,
+  perfetto: Perfetto,
+  gnirehtet: Gnirehtet,
+}
 
 export default observer(function App() {
   useCheckUpdate('https://aya.liriliri.io')
+
+  const visiblePanels = store.settings.visiblePanels
 
   return (
     <>
       <Toolbar />
       {store.ready && (
         <div className={Style.workspace}>
-          <div
-            className={Style.panels}
-            key={store.device ? store.device.id : ''}
-          >
-            <Panel panel="overview">
-              <Overview />
-            </Panel>
-            <Panel panel="application">
-              <Application />
-            </Panel>
-            <Panel panel="screenshot">
-              <Screenshot />
-            </Panel>
-            <Panel panel="logcat">
-              <Logcat />
-            </Panel>
-            <Panel panel="shell">
-              <Shell />
-            </Panel>
-            <Panel panel="process">
-              <Process />
-            </Panel>
-            <Panel panel="performance">
-              <Performance />
-            </Panel>
-            <Panel panel="webview">
-              <Webview />
-            </Panel>
-            <Panel panel="file">
-              <File />
-            </Panel>
-            <Panel panel="layout">
-              <Layout />
-            </Panel>
-            <Panel panel="perfetto">
-              <Perfetto />
-            </Panel>
-            <Panel panel="gnirehtet">
-              <Gnirehtet />
-            </Panel>
-          </div>
+          {isEmpty(visiblePanels) ? (
+            <div className={Style.emptyState}>
+              {t('noTabsEnabled')}
+            </div>
+          ) : (
+            <div
+              className={Style.panels}
+              key={store.device ? store.device.id : ''}
+            >
+              {map(visiblePanels, (panel) => {
+                const Component = panelComponents[panel.id]
+                if (!Component) return null
+                return (
+                  <Panel key={panel.id} panel={panel.id}>
+                    <Component />
+                  </Panel>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
     </>
@@ -80,6 +80,15 @@ const Panel: FC<PropsWithChildren<IPanelProps>> = observer(function Panel(
   props
 ) {
   const [used, setUsed] = useState(false)
+
+  const isEnabled = !!find(
+    store.settings.enabledPanels,
+    (p) => p.id === props.panel && p.enabled
+  )
+
+  if (!isEnabled) {
+    return null
+  }
 
   let visible = false
 
@@ -102,3 +111,4 @@ const Panel: FC<PropsWithChildren<IPanelProps>> = observer(function Panel(
     </div>
   )
 })
+

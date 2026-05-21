@@ -178,5 +178,9 @@
   "disabled": "Deshabilitado",
   "storageUsage": "Uso de Almacenamiento",
   "maxFps": "FPS Máximo",
-  "unlimited": "Sin límite"
+  "unlimited": "Sin límite",
+  "tabManagement": "Tab Management",
+  "moveUp": "Move Up",
+  "moveDown": "Move Down",
+  "noTabsEnabled": "No tabs enabled. Enable tabs in Settings."
 }

@@ -55,8 +55,14 @@ class Store extends BaseStore {
     setMainStore('device', this.device)
   }
   selectPanel(panel: string) {
-    this.panel = panel
-    setMainStore('panel', panel)
+    const visiblePanels = this.settings.visiblePanels
+    const isEnabled = find(visiblePanels, (p) => p.id === panel)
+    if (isEnabled) {
+      this.panel = panel
+    } else if (visiblePanels.length > 0) {
+      this.panel = visiblePanels[0].id
+    }
+    setMainStore('panel', this.panel)
   }
   private async init() {
     const panel = await main.getMainStore('panel')

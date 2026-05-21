@@ -216,5 +216,9 @@
   "enabled": "Ativado",
   "disabled": "Desativado",
   "maxFps": "FPS Máximo",
-  "unlimited": "Sem limite"
+  "unlimited": "Sem limite",
+  "tabManagement": "Tab Management",
+  "moveUp": "Move Up",
+  "moveDown": "Move Down",
+  "noTabsEnabled": "No tabs enabled. Enable tabs in Settings."
 }

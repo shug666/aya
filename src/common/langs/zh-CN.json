@@ -237,5 +237,9 @@
   "importError": "导入失败：文件格式无效",
   "exportSuccess": "命令导出成功",
   "startShizuku": "启动 Shizuku",
-  "grantGKD": "授权 GKD"
+  "grantGKD": "授权 GKD",
+  "tabManagement": "标签页管理",
+  "moveUp": "上移",
+  "moveDown": "下移",
+  "noTabsEnabled": "没有启用的标签页，请在设置中开启"
 }

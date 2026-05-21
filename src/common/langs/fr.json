@@ -195,5 +195,9 @@
   "updateAvailable": "Une nouvelle version est disponible, souhaitez-vous la télécharger ?",
   "updateErr": "Échec de la vérification des mises à jour",
   "maxFps": "FPS Maximum",
-  "unlimited": "Illimité"
+  "unlimited": "Illimité",
+  "tabManagement": "Tab Management",
+  "moveUp": "Move Up",
+  "moveDown": "Move Down",
+  "noTabsEnabled": "No tabs enabled. Enable tabs in Settings."
 }

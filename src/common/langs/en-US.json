@@ -237,5 +237,9 @@
   "importError": "Failed to import: invalid file format",
   "exportSuccess": "Commands exported successfully",
   "startShizuku": "Start Shizuku",
-  "grantGKD": "Grant GKD"
+  "grantGKD": "Grant GKD",
+  "tabManagement": "Tab Management",
+  "moveUp": "Move Up",
+  "moveDown": "Move Down",
+  "noTabsEnabled": "No tabs enabled. Enable tabs in Settings."
 }

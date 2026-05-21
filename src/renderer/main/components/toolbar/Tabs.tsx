@@ -7,27 +7,14 @@ import store from '../../store'
 
 export default observer(function Panels() {
   const tabItems = map(
-    [
-      'overview',
-      'file',
-      'application',
-      'process',
-      'performance',
-      'shell',
-      'layout',
-      'screenshot',
-      'logcat',
-      'webview',
-      'perfetto',
-      'gnirehtet',
-    ],
+    store.settings.visiblePanels,
     (panel) => {
       return (
         <LunaTabItem
-          key={panel}
-          id={panel}
-          title={t(panel)}
-          selected={panel === store.panel}
+          key={panel.id}
+          id={panel.id}
+          title={t(panel.id)}
+          selected={panel.id === store.panel}
         />
       )
     }
@@ -43,3 +30,4 @@ export default observer(function Panels() {
     </LunaTab>
   )
 })
+
