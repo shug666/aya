@@ -3,8 +3,10 @@
 # 确保脚本在正确的目录下执行
 cd "$(dirname "$0")"
 
-echo "🚀 [1/3] 检查并清理可能被占用的 8080 端口..."
+echo "🚀 [1/3] 检查并清理可能被占用的 8080 端口和后台 Electron/AYA 进程..."
 fuser -k 8080/tcp 2>/dev/null || true
+pkill -f "electron ./dist/main/index.js" 2>/dev/null || true
+pkill -x aya 2>/dev/null || true
 
 # 当脚本退出时（比如关闭了 Electron 客户端），自动杀掉后台的 npm run dev
 trap 'echo "🛑 应用已关闭，正在清理后台服务..."; kill $(jobs -p) 2>/dev/null || true; fuser -k 8080/tcp 2>/dev/null || true' EXIT
@@ -23,5 +25,5 @@ done
 # 额外等待1秒确保文件完全写入磁盘
 sleep 1
 
-echo "🚀 [3/3] 启动 Electron 客户端..."
+ls -la dist/main/index.js; echo "🚀 [3/3] 启动 Electron 客户端..."
 npm start

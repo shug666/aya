@@ -39,6 +39,10 @@ jobs:
       run: npm run server
     - name: Download scrcpy
       run: npm run scrcpy
+    - name: Download perfetto
+      run: npm run perfetto
+    - name: Download gnirehtet
+      run: npm run gnirehtet
     - name: Build app
       run: npm run build
     - name: Package

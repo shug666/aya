@@ -46,6 +46,9 @@ const config = {
       }
     ],
   },
+  deb: {
+    depends: ['python3', 'default-jre | java-runtime']
+  },
   mac: {
     electronLanguages: ['zh_CN', 'en'],
     target: [

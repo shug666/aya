@@ -21,6 +21,8 @@
     "adb": "zx script/adb.mjs",
     "scrcpy": "zx script/scrcpy.mjs",
     "server": "zx script/server.mjs",
+    "perfetto": "zx script/perfetto.mjs",
+    "gnirehtet": "zx script/gnirehtet.mjs",
     "format": "lsla prettier \"src/**/*.{ts,tsx,scss,css,json}\" \"*.{js,ts,json}\" \"script/*.mjs\" --write",
     "start": "electron ./dist/main/index.js --inspect=9229",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
