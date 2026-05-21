@@ -1,0 +1,125 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text, rgba(0, 0, 0, 0.88));
+
+  .requiredMark {
+    color: #ff4d4f;
+    margin-left: 2px;
+  }
+}
+
+:global(.theme-dark) .label {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border, #c9ccd6);
+  border-radius: 6px;
+  font-size: 13px;
+  background: var(--color-bg-container, #f7f8fa);
+  color: var(--color-text, rgba(0, 0, 0, 0.88));
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+
+  &:focus {
+    border-color: #4fb155;
+  }
+
+  &::placeholder {
+    color: var(--color-text-placeholder, rgba(0, 0, 0, 0.25));
+  }
+}
+
+:global(.theme-dark) .input {
+  background: #1e1f22;
+  border-color: #4e5157;
+  color: rgba(255, 255, 255, 0.85);
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.25);
+  }
+}
+
+.textarea {
+  composes: input;
+  resize: vertical;
+  min-height: 60px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+}
+
+.select {
+  composes: input;
+  cursor: pointer;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.btn {
+  padding: 5px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  border: 1px solid var(--color-border, #c9ccd6);
+  background: var(--color-bg-elevated, #ffffff);
+  color: var(--color-text, rgba(0, 0, 0, 0.88));
+  transition: all 0.15s;
+
+  &:hover {
+    border-color: #4fb155;
+    color: #4fb155;
+  }
+
+  &.primaryBtn {
+    background: #4fb155;
+    border-color: #4fb155;
+    color: #fff;
+    &:hover {
+      background: #378a3f;
+      border-color: #378a3f;
+    }
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+}
+
+:global(.theme-dark) .btn {
+  background: #2b2d30;
+  border-color: #4e5157;
+  color: rgba(255, 255, 255, 0.85);
+  &:hover {
+    border-color: #46994b;
+    color: #46994b;
+  }
+  &.primaryBtn {
+    background: #46994b;
+    border-color: #46994b;
+    color: #fff;
+    &:hover {
+      background: #3a7a3e;
+      border-color: #3a7a3e;
+    }
+  }
+}

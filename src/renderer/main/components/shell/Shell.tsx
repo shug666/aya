@@ -11,11 +11,11 @@ import { useEffect, useRef, useState } from 'react'
 import uuid from 'licia/uuid'
 import map from 'licia/map'
 import filter from 'licia/filter'
-import LunaCommandPalette from 'luna-command-palette/react'
 import find from 'licia/find'
 import idxOf from 'licia/idxOf'
-import truncate from 'licia/truncate'
 import { Terminal } from '@xterm/xterm'
+import CommandDrawer from './CommandDrawer'
+import { ICommandCategory, IShellCommand } from 'common/types'
 
 interface IShell {
   id: string
@@ -26,16 +26,33 @@ interface IShell {
 
 export default observer(function Shell() {
   const [shells, setShells] = useState<Array<IShell>>([])
-  const [commandPaletteVisible, setCommandPaletteVisible] = useState(false)
+  const [drawerVisible, setDrawerVisible] = useState(false)
   const [selectedShell, setSelectedShell] = useState<IShell>({
     id: '',
     name: '',
     sessionId: '',
   })
+  const [categories, setCategories] = useState<ICommandCategory[]>([])
+  const [commands, setCommands] = useState<IShellCommand[]>([])
   const numRef = useRef(1)
   const { device } = store
 
   useEffect(() => add(), [])
+
+  // Load commands and categories from store
+  useEffect(() => {
+    async function loadData() {
+      const storedCategories = await main.getShellStore('categories')
+      const storedCommands = await main.getShellStore('commands')
+      if (storedCategories) {
+        setCategories(storedCategories)
+      }
+      if (storedCommands) {
+        setCommands(storedCommands)
+      }
+    }
+    loadData()
+  }, [])
 
   function add() {
     const id = uuid()
@@ -60,6 +77,25 @@ export default observer(function Shell() {
       }
       setSelectedShell(newShells[closedIdx])
     }
+  }
+
+  function handleCategoriesChange(newCategories: ICommandCategory[]) {
+    setCategories(newCategories)
+    main.setShellStore('categories', newCategories)
+  }
+
+  function handleCommandsChange(newCommands: IShellCommand[]) {
+    setCommands(newCommands)
+    main.setShellStore('commands', newCommands)
+  }
+
+  function handleExecute(command: string) {
+    main.writeShell(selectedShell.sessionId, command)
+    setTimeout(() => {
+      if (selectedShell.terminal) {
+        selectedShell.terminal.focus()
+      }
+    }, 500)
   }
 
   const tabItems = map(shells, (shell) => {
@@ -89,20 +125,6 @@ export default observer(function Shell() {
     )
   })
 
-  const commands = map(getCommands(), ([title, command]) => {
-    return {
-      title: `${title} (${truncate(command, 95 - title.length)})`,
-      handler: () => {
-        main.writeShell(selectedShell.sessionId, command)
-        setTimeout(() => {
-          if (selectedShell.terminal) {
-            selectedShell.terminal.focus()
-          }
-        }, 500)
-      },
-    }
-  })
-
   return (
     <div className="panel-with-toolbar">
       <div className={className('panel-toolbar', Style.toolbar)}>
@@ -129,44 +151,24 @@ export default observer(function Shell() {
           <LunaToolbarSpace />
           <ToolbarIcon
             icon="list"
-            title={t('shortcut')}
-            onClick={() => setCommandPaletteVisible(true)}
+            title={t('commandPanel')}
+            onClick={() => setDrawerVisible(true)}
             disabled={!device}
           />
         </LunaToolbar>
       </div>
       <div className="panel-body">
         {terms}
-        <LunaCommandPalette
-          placeholder={t('typeCmd')}
-          visible={commandPaletteVisible}
-          onClose={() => setCommandPaletteVisible(false)}
+        <CommandDrawer
+          visible={drawerVisible}
+          onClose={() => setDrawerVisible(false)}
+          onExecute={handleExecute}
+          categories={categories}
           commands={commands}
+          onCategoriesChange={handleCategoriesChange}
+          onCommandsChange={handleCommandsChange}
         />
       </div>
     </div>
   )
 })
-
-function getCommands() {
-  const commands = [
-    [t('reboot'), 'reboot\n'],
-    [t('rebootRecovery'), 'reboot recovery\n'],
-    [t('rebootBootloader'), 'reboot bootloader\n'],
-    [t('memInfo'), 'dumpsys meminfo\n'],
-    [t('batteryInfo'), 'dumpsys battery\n'],
-    [
-      `${t('start')} shizuku`,
-      'sh /sdcard/Android/data/moe.shizuku.privileged.api/start.sh\n',
-    ],
-  ]
-
-  if (store.language === 'zh-CN') {
-    commands.push([
-      '授权 GKD',
-      'pm grant li.songe.gkd android.permission.WRITE_SECURE_SETTINGS; appops set li.songe.gkd ACCESS_RESTRICTED_SETTINGS allow\n',
-    ])
-  }
-
-  return commands
-}

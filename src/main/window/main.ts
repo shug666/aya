@@ -1,5 +1,5 @@
 import { app, BrowserWindow, session } from 'electron'
-import { getMainStore } from '../lib/store'
+import { getMainStore, getShellStore } from '../lib/store'
 import { getOpenFileFromArgv, handleEvent } from 'share/main/lib/util'
 import * as window from 'share/main/lib/window'
 import * as screencast from './screencast'
@@ -9,10 +9,12 @@ import once from 'licia/once'
 import { IpcGetStore, IpcSetStore } from 'share/common/types'
 import isMac from 'licia/isMac'
 import endWith from 'licia/endWith'
+import fs from 'fs-extra'
 
 const logger = log('mainWin')
 
 const store = getMainStore()
+const shellStore = getShellStore()
 
 let win: BrowserWindow | null = null
 
@@ -68,6 +70,16 @@ const initIpc = once(() => {
   handleEvent('getMainStore', <IpcGetStore>((name) => store.get(name)))
   store.on('change', (name, val) => {
     window.sendAll('changeMainStore', name, val)
+  })
+  handleEvent('setShellStore', <IpcSetStore>(
+    ((name, val) => shellStore.set(name, val))
+  ))
+  handleEvent('getShellStore', <IpcGetStore>((name) => shellStore.get(name)))
+  handleEvent('writeFile', async (filePath: string, content: string) => {
+    await fs.writeFile(filePath, content, 'utf-8')
+  })
+  handleEvent('readFile', async (filePath: string) => {
+    return await fs.readFile(filePath, 'utf-8')
   })
   handleEvent('showScreencast', () => screencast.showWin())
   handleEvent('closeScreencast', () => screencast.closeWin())

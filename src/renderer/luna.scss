@@ -1,12 +1,18 @@
 @each $class in (':root', '.-theme-with-dark-background') {
+  $selected-bg: #ddd;
+  $even-bg: #ededed;
+  @if $class == '.-theme-with-dark-background' {
+    $selected-bg: #393939;
+    $even-bg: #1e1e1e;
+  }
   #{$class} {
     .luna-data-grid-data-container {
       .luna-data-grid-node.luna-data-grid-selected,
       .luna-data-grid-node.luna-data-grid-selectable:hover {
-        background-color: if($class == ':root', #ddd, #393939);
+        background-color: $selected-bg;
       }
       tr:nth-child(even) {
-        background-color: if($class == ':root', #ededed, #1e1e1e);
+        background-color: $even-bg;
       }
     }
     .luna-data-grid:focus {

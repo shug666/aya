@@ -196,3 +196,20 @@ export type IpcGetFileUrl = (
 ) => Promise<string>
 export type IpcStartGnirehtet = (deviceId: string) => Promise<void>
 export type IpcStopGnirehtet = (deviceId: string) => Promise<void>
+
+export interface ICommandCategory {
+  id: string
+  name: string
+  builtin: boolean
+  order: number
+}
+
+export interface IShellCommand {
+  id: string
+  title: string
+  description: string
+  command: string
+  categoryId: string
+  builtin: boolean
+  order: number
+}
