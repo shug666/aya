@@ -10,8 +10,20 @@ const zipPath = `${resourcesDir}/gnirehtet-java.zip`
 
 await fs.remove(gnirehtetDir)
 await $`curl -Lk ${url} > ${zipPath}`
-await $`unzip -o ${zipPath} -d ${resourcesDir}`
-await $`mv ${resourcesDir}/gnirehtet-java-v${version} ${gnirehtetDir}`
+
+const tmpDir = `${resourcesDir}/gnirehtet-tmp`
+await fs.remove(tmpDir)
+await fs.ensureDir(tmpDir)
+await $`unzip -o ${zipPath} -d ${tmpDir}`
+
+const dirs = await fs.readdir(tmpDir)
+if (dirs.length === 1 && (await fs.stat(path.join(tmpDir, dirs[0]))).isDirectory()) {
+  await fs.move(path.join(tmpDir, dirs[0]), gnirehtetDir)
+  await fs.remove(tmpDir)
+} else {
+  await fs.move(tmpDir, gnirehtetDir)
+}
+
 await fs.remove(zipPath)
 
 // Set executable permissions for the shell script
