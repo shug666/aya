@@ -1,5 +1,4 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
-import { createPortal } from 'react-dom'
 import { observer } from 'mobx-react-lite'
 import LunaModal from 'luna-modal'
 import { t } from 'common/util'
@@ -298,12 +297,8 @@ export default observer(function CommandDrawer(props: ICommandDrawerProps) {
     }
   }
 
-  return createPortal(
+  return (
     <>
-      <div
-        className={className(Style.overlay, { [Style.visible]: visible })}
-        onClick={onClose}
-      />
       <div
         className={className(Style.drawer, {
           [Style.visible]: visible,
@@ -478,7 +473,6 @@ export default observer(function CommandDrawer(props: ICommandDrawerProps) {
         command={editingCommand}
         categories={categories}
       />
-    </>,
-    document.body
+    </>
   )
 })

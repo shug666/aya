@@ -152,12 +152,12 @@ export default observer(function Shell() {
           <ToolbarIcon
             icon="list"
             title={t('commandPanel')}
-            onClick={() => setDrawerVisible(true)}
+            onClick={() => setDrawerVisible(!drawerVisible)}
             disabled={!device}
           />
         </LunaToolbar>
       </div>
-      <div className="panel-body">
+      <div className={className('panel-body', Style.panelBody)}>
         {terms}
         <CommandDrawer
           visible={drawerVisible}

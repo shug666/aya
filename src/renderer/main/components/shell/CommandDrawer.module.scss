@@ -1,42 +1,16 @@
-.overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.45);
-  z-index: 1000;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  pointer-events: none;
-
-  &.visible {
-    opacity: 1;
-    pointer-events: auto;
-  }
-}
-
-:global(.custom-titlebar) .overlay {
-  top: 31px;
-}
-
-:global(.platform-mac.custom-titlebar) .overlay {
-  top: 28px;
-}
-
 .drawer {
-  position: fixed;
+  position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
   width: var(--drawer-width, 380px);
   min-width: 280px;
-  max-width: 80vw;
+  max-width: 80%;
   background: var(--color-bg-elevated, #ffffff);
   box-shadow: -6px 0 16px 0 rgba(0, 0, 0, 0.08),
     -3px 0 6px -4px rgba(0, 0, 0, 0.12),
     -9px 0 28px 8px rgba(0, 0, 0, 0.05);
-  z-index: 1001;
+  z-index: 10;
   display: flex;
   flex-direction: column;
   transform: translateX(100%);
@@ -59,7 +33,7 @@
   bottom: 0;
   width: 6px;
   cursor: col-resize;
-  z-index: 1002;
+  z-index: 11;
 
   &::after {
     content: '';
@@ -75,14 +49,6 @@
   &:hover::after {
     background: #4fb155;
   }
-}
-
-:global(.custom-titlebar) .drawer {
-  top: 31px;
-}
-
-:global(.platform-mac.custom-titlebar) .drawer {
-  top: 28px;
 }
 
 :global(.theme-dark) .drawer {
