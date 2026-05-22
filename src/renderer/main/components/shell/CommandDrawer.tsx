@@ -49,6 +49,8 @@ export default observer(function CommandDrawer(props: ICommandDrawerProps) {
   const [drawerWidth, setDrawerWidth] = useState(380)
   const [resizing, setResizing] = useState(false)
   const resizeRef = useRef({ startX: 0, startWidth: 0 })
+  const dragCatRef = useRef<string | null>(null)
+  const dragCmdRef = useRef<string | null>(null)
 
   const handleResizeMove = useCallback((e: MouseEvent) => {
     const delta = resizeRef.current.startX - e.clientX
@@ -232,36 +234,49 @@ export default observer(function CommandDrawer(props: ICommandDrawerProps) {
     }
   }
 
-  function handleMoveCategoryOrder(catId: string, direction: number) {
+  function handleCatDragStart(catId: string) {
+    dragCatRef.current = catId
+  }
+
+  function handleCatDragOver(e: React.DragEvent, targetCatId: string) {
+    e.preventDefault()
+    if (!dragCatRef.current || dragCatRef.current === targetCatId) return
     const sorted = clone(categories).sort(
       (a: ICommandCategory, b: ICommandCategory) => a.order - b.order
     )
-    const idx = sorted.findIndex((c: ICommandCategory) => c.id === catId)
-    const targetIdx = idx + direction
-    if (targetIdx < 0 || targetIdx >= sorted.length) return
-    const tempOrder = sorted[idx].order
-    sorted[idx].order = sorted[targetIdx].order
-    sorted[targetIdx].order = tempOrder
+    const fromIdx = sorted.findIndex((c: ICommandCategory) => c.id === dragCatRef.current)
+    const toIdx = sorted.findIndex((c: ICommandCategory) => c.id === targetCatId)
+    if (fromIdx < 0 || toIdx < 0) return
+    const tempOrder = sorted[fromIdx].order
+    sorted[fromIdx].order = sorted[toIdx].order
+    sorted[toIdx].order = tempOrder
     onCategoriesChange(sorted)
   }
 
-  function handleMoveCommandOrder(cmdId: string, direction: number) {
-    const cmd = find(commands, (c) => c.id === cmdId)
-    if (!cmd) return
-    const sameCat = filter(commands, (c) => c.categoryId === cmd.categoryId).sort(
-      (a, b) => a.order - b.order
-    )
-    const idx = sameCat.findIndex((c) => c.id === cmdId)
-    const targetIdx = idx + direction
-    if (targetIdx < 0 || targetIdx >= sameCat.length) return
-    const tempOrder = sameCat[idx].order
-    sameCat[idx].order = sameCat[targetIdx].order
-    sameCat[targetIdx].order = tempOrder
+  function handleCatDragEnd() {
+    dragCatRef.current = null
+  }
+
+  function handleCmdDragStart(cmdId: string) {
+    dragCmdRef.current = cmdId
+  }
+
+  function handleCmdDragOver(e: React.DragEvent, targetCmdId: string) {
+    e.preventDefault()
+    if (!dragCmdRef.current || dragCmdRef.current === targetCmdId) return
+    const dragCmd = find(commands, (c) => c.id === dragCmdRef.current)
+    const targetCmd = find(commands, (c) => c.id === targetCmdId)
+    if (!dragCmd || !targetCmd || dragCmd.categoryId !== targetCmd.categoryId) return
     const updated = map(commands, (c) => {
-      const changed = find(sameCat, (sc) => sc.id === c.id)
-      return changed ? { ...c, order: changed.order } : c
+      if (c.id === dragCmd.id) return { ...c, order: targetCmd.order }
+      if (c.id === targetCmd.id) return { ...c, order: dragCmd.order }
+      return c
     })
     onCommandsChange(updated)
+  }
+
+  function handleCmdDragEnd() {
+    dragCmdRef.current = null
   }
 
   async function handleExport() {
@@ -375,12 +390,16 @@ export default observer(function CommandDrawer(props: ICommandDrawerProps) {
           >
             {t('allCategories')}
           </span>
-          {map(sortedCategories, (cat, catIdx) => (
+          {map(sortedCategories, (cat) => (
             <span
               key={cat.id}
               className={className(Style.tab, {
                 [Style.active]: activeCategory === cat.id,
               })}
+              draggable
+              onDragStart={() => handleCatDragStart(cat.id)}
+              onDragOver={(e) => handleCatDragOver(e, cat.id)}
+              onDragEnd={handleCatDragEnd}
               onClick={() => setActiveCategory(cat.id)}
             >
               {t(cat.name) || cat.name}
@@ -408,30 +427,6 @@ export default observer(function CommandDrawer(props: ICommandDrawerProps) {
                   </span>
                 </>
               )}
-              <span
-                className={className(Style.tabAction, Style.orderAction, {
-                  [Style.disabled]: catIdx === 0,
-                })}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (catIdx > 0) handleMoveCategoryOrder(cat.id, -1)
-                }}
-                title={t('moveUp')}
-              >
-                ←
-              </span>
-              <span
-                className={className(Style.tabAction, Style.orderAction, {
-                  [Style.disabled]: catIdx === sortedCategories.length - 1,
-                })}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (catIdx < sortedCategories.length - 1) handleMoveCategoryOrder(cat.id, 1)
-                }}
-                title={t('moveDown')}
-              >
-                →
-              </span>
             </span>
           ))}
           <button className={Style.addCategoryBtn} onClick={handleAddCategory}>
@@ -461,9 +456,17 @@ export default observer(function CommandDrawer(props: ICommandDrawerProps) {
                   {t(group.category.name) || group.category.name}
                 </div>
                 {!collapsedCategories.has(group.category.id) &&
-                  map(group.commands, (cmd, cmdIdx) => (
-                    <div key={cmd.id} className={Style.commandItem}>
+                  map(group.commands, (cmd) => (
+                    <div
+                      key={cmd.id}
+                      className={Style.commandItem}
+                      draggable
+                      onDragStart={() => handleCmdDragStart(cmd.id)}
+                      onDragOver={(e) => handleCmdDragOver(e, cmd.id)}
+                      onDragEnd={handleCmdDragEnd}
+                    >
                       <div className={Style.commandTop}>
+                        <span className={Style.dragHandle}>☰</span>
                         <div className={Style.commandInfo}>
                           <div className={Style.commandTitle}>
                             {t(cmd.title) || cmd.title}
@@ -478,28 +481,6 @@ export default observer(function CommandDrawer(props: ICommandDrawerProps) {
                           </div>
                         </div>
                         <div className={Style.commandActions}>
-                          <button
-                            className={className(
-                              Style.actionBtn,
-                              Style.orderBtn
-                            )}
-                            disabled={cmdIdx === 0}
-                            onClick={() => handleMoveCommandOrder(cmd.id, -1)}
-                            title={t('moveUp')}
-                          >
-                            ↑
-                          </button>
-                          <button
-                            className={className(
-                              Style.actionBtn,
-                              Style.orderBtn
-                            )}
-                            disabled={cmdIdx === group.commands.length - 1}
-                            onClick={() => handleMoveCommandOrder(cmd.id, 1)}
-                            title={t('moveDown')}
-                          >
-                            ↓
-                          </button>
                           <button
                             className={className(
                               Style.actionBtn,
