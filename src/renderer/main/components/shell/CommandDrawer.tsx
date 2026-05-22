@@ -6,6 +6,7 @@ import { notify } from 'share/renderer/lib/util'
 import uuid from 'licia/uuid'
 import filter from 'licia/filter'
 import map from 'licia/map'
+import clone from 'licia/clone'
 import each from 'licia/each'
 import find from 'licia/find'
 import contain from 'licia/contain'
@@ -80,6 +81,10 @@ export default observer(function CommandDrawer(props: ICommandDrawerProps) {
     }
   }, [handleResizeMove, handleResizeEnd])
 
+  const sortedCategories = useMemo(() => {
+    return clone(categories).sort((a: ICommandCategory, b: ICommandCategory) => a.order - b.order)
+  }, [categories])
+
   const filteredCommands = useMemo(() => {
     let result = commands
     if (activeCategory !== 'all') {
@@ -104,18 +109,21 @@ export default observer(function CommandDrawer(props: ICommandDrawerProps) {
       commands: IShellCommand[]
     }> = []
 
-    each(categories, (cat) => {
+    each(sortedCategories, (cat) => {
       const cmds = filter(
         filteredCommands,
         (cmd) => cmd.categoryId === cat.id
       )
       if (cmds.length > 0) {
-        groups.push({ category: cat, commands: cmds })
+        groups.push({
+          category: cat,
+          commands: cmds.sort((a, b) => a.order - b.order),
+        })
       }
     })
 
     return groups
-  }, [filteredCommands, categories])
+  }, [filteredCommands, sortedCategories])
 
   function toggleCollapse(categoryId: string) {
     const newSet = new Set(collapsedCategories)
@@ -222,6 +230,38 @@ export default observer(function CommandDrawer(props: ICommandDrawerProps) {
     if (activeCategory === cat.id) {
       setActiveCategory('all')
     }
+  }
+
+  function handleMoveCategoryOrder(catId: string, direction: number) {
+    const sorted = clone(categories).sort(
+      (a: ICommandCategory, b: ICommandCategory) => a.order - b.order
+    )
+    const idx = sorted.findIndex((c: ICommandCategory) => c.id === catId)
+    const targetIdx = idx + direction
+    if (targetIdx < 0 || targetIdx >= sorted.length) return
+    const tempOrder = sorted[idx].order
+    sorted[idx].order = sorted[targetIdx].order
+    sorted[targetIdx].order = tempOrder
+    onCategoriesChange(sorted)
+  }
+
+  function handleMoveCommandOrder(cmdId: string, direction: number) {
+    const cmd = find(commands, (c) => c.id === cmdId)
+    if (!cmd) return
+    const sameCat = filter(commands, (c) => c.categoryId === cmd.categoryId).sort(
+      (a, b) => a.order - b.order
+    )
+    const idx = sameCat.findIndex((c) => c.id === cmdId)
+    const targetIdx = idx + direction
+    if (targetIdx < 0 || targetIdx >= sameCat.length) return
+    const tempOrder = sameCat[idx].order
+    sameCat[idx].order = sameCat[targetIdx].order
+    sameCat[targetIdx].order = tempOrder
+    const updated = map(commands, (c) => {
+      const changed = find(sameCat, (sc) => sc.id === c.id)
+      return changed ? { ...c, order: changed.order } : c
+    })
+    onCommandsChange(updated)
   }
 
   async function handleExport() {
@@ -335,7 +375,7 @@ export default observer(function CommandDrawer(props: ICommandDrawerProps) {
           >
             {t('allCategories')}
           </span>
-          {map(categories, (cat) => (
+          {map(sortedCategories, (cat, catIdx) => (
             <span
               key={cat.id}
               className={className(Style.tab, {
@@ -368,6 +408,30 @@ export default observer(function CommandDrawer(props: ICommandDrawerProps) {
                   </span>
                 </>
               )}
+              <span
+                className={className(Style.tabAction, Style.orderAction, {
+                  [Style.disabled]: catIdx === 0,
+                })}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (catIdx > 0) handleMoveCategoryOrder(cat.id, -1)
+                }}
+                title={t('moveUp')}
+              >
+                ←
+              </span>
+              <span
+                className={className(Style.tabAction, Style.orderAction, {
+                  [Style.disabled]: catIdx === sortedCategories.length - 1,
+                })}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (catIdx < sortedCategories.length - 1) handleMoveCategoryOrder(cat.id, 1)
+                }}
+                title={t('moveDown')}
+              >
+                →
+              </span>
             </span>
           ))}
           <button className={Style.addCategoryBtn} onClick={handleAddCategory}>
@@ -397,7 +461,7 @@ export default observer(function CommandDrawer(props: ICommandDrawerProps) {
                   {t(group.category.name) || group.category.name}
                 </div>
                 {!collapsedCategories.has(group.category.id) &&
-                  map(group.commands, (cmd) => (
+                  map(group.commands, (cmd, cmdIdx) => (
                     <div key={cmd.id} className={Style.commandItem}>
                       <div className={Style.commandTop}>
                         <div className={Style.commandInfo}>
@@ -414,6 +478,28 @@ export default observer(function CommandDrawer(props: ICommandDrawerProps) {
                           </div>
                         </div>
                         <div className={Style.commandActions}>
+                          <button
+                            className={className(
+                              Style.actionBtn,
+                              Style.orderBtn
+                            )}
+                            disabled={cmdIdx === 0}
+                            onClick={() => handleMoveCommandOrder(cmd.id, -1)}
+                            title={t('moveUp')}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            className={className(
+                              Style.actionBtn,
+                              Style.orderBtn
+                            )}
+                            disabled={cmdIdx === group.commands.length - 1}
+                            onClick={() => handleMoveCommandOrder(cmd.id, 1)}
+                            title={t('moveDown')}
+                          >
+                            ↓
+                          </button>
                           <button
                             className={className(
                               Style.actionBtn,
