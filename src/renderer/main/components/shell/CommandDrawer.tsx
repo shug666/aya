@@ -401,31 +401,23 @@ export default observer(function CommandDrawer(props: ICommandDrawerProps) {
               onDragOver={(e) => handleCatDragOver(e, cat.id)}
               onDragEnd={handleCatDragEnd}
               onClick={() => setActiveCategory(cat.id)}
+              onDoubleClick={(e) => {
+                e.stopPropagation()
+                handleEditCategory(cat)
+              }}
             >
               {t(cat.name) || cat.name}
               {!cat.builtin && (
-                <>
-                  <span
-                    className={Style.tabAction}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleEditCategory(cat)
-                    }}
-                    title={t('editCategory')}
-                  >
-                    ✎
-                  </span>
-                  <span
-                    className={Style.tabAction}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleDeleteCategory(cat)
-                    }}
-                    title={t('deleteCategory')}
-                  >
-                    ✕
-                  </span>
-                </>
+                <span
+                  className={Style.tabAction}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleDeleteCategory(cat)
+                  }}
+                  title={t('deleteCategory')}
+                >
+                  ✕
+                </span>
               )}
             </span>
           ))}
