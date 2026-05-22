@@ -241,5 +241,6 @@
   "tabManagement": "标签页管理",
   "moveUp": "上移",
   "moveDown": "下移",
-  "noTabsEnabled": "没有启用的标签页，请在设置中开启"
+  "noTabsEnabled": "没有启用的标签页，请在设置中开启",
+  "lastTabWarning": "至少需要保留一个标签页"
 }

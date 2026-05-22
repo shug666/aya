@@ -182,5 +182,6 @@
   "tabManagement": "Tab Management",
   "moveUp": "Move Up",
   "moveDown": "Move Down",
-  "noTabsEnabled": "No tabs enabled. Enable tabs in Settings."
+  "noTabsEnabled": "No tabs enabled. Enable tabs in Settings.",
+  "lastTabWarning": "At least one tab must remain enabled"
 }

@@ -20,6 +20,7 @@ import { IModalProps } from 'share/common/types'
 import { PanelConfig } from '../../store/settings'
 import map from 'licia/map'
 import clone from 'licia/clone'
+import filter from 'licia/filter'
 
 const notifyRequireReload = debounce(() => {
   notify(t('requireReload'), { icon: 'info' })
@@ -31,6 +32,14 @@ const TabManager = observer(function TabManager() {
   )
 
   function togglePanel(id: string) {
+    const target = panels.find((p: PanelConfig) => p.id === id)
+    if (target && target.enabled) {
+      const enabledCount = filter(panels, (p: PanelConfig) => p.enabled).length
+      if (enabledCount <= 1) {
+        notify(t('lastTabWarning'), { icon: 'warn' })
+        return
+      }
+    }
     const updated = map(store.settings.enabledPanels, (p: PanelConfig) => {
       if (p.id === id) {
         return { ...p, enabled: !p.enabled }
