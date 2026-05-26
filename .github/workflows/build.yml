@@ -22,11 +22,41 @@ jobs:
     - uses: actions/setup-node@v6
       with:
         node-version: '18.x'
-    - uses: actions/setup-java@v5
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-    - uses: android-actions/setup-android@v4
+    - name: Setup Java 17
+      shell: bash
+      run: |
+        if [[ "$RUNNER_OS" == "Linux" ]]; then
+          JAVA_PATH=$(find /usr/lib/jvm -maxdepth 1 -name '*17*' -type d | head -1)
+          if [ -z "$JAVA_PATH" ]; then
+            sudo apt-get update && sudo apt-get install -y temurin-17-jdk || sudo apt-get install -y openjdk-17-jdk
+            JAVA_PATH=$(find /usr/lib/jvm -maxdepth 1 -name '*17*' -type d | head -1)
+          fi
+          echo "JAVA_HOME=$JAVA_PATH" >> $GITHUB_ENV
+          echo "$JAVA_PATH/bin" >> $GITHUB_PATH
+        elif [[ "$RUNNER_OS" == "Windows" ]]; then
+          JAVA_PATH=$(find "C:/hostedtoolcache/windows/Java_Temurin-Hotspot_jdk" -maxdepth 1 -name '17*' -type d 2>/dev/null | head -1)
+          if [ -z "$JAVA_PATH" ]; then
+            JAVA_PATH=$(find "$JAVA_HOME_17_X64" -maxdepth 0 -type d 2>/dev/null | head -1)
+          fi
+          if [ -n "$JAVA_PATH" ]; then
+            echo "JAVA_HOME=$JAVA_PATH" >> $GITHUB_ENV
+            echo "$JAVA_PATH/bin" >> $GITHUB_PATH
+          fi
+        fi
+        java -version
+    - name: Setup Android SDK
+      shell: bash
+      run: |
+        if [ -n "$ANDROID_HOME" ] && [ -d "$ANDROID_HOME" ]; then
+          echo "Android SDK already available at $ANDROID_HOME"
+        elif [ -n "$ANDROID_SDK_ROOT" ] && [ -d "$ANDROID_SDK_ROOT" ]; then
+          echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
+        else
+          echo "No Android SDK found, installing..."
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            sudo apt-get update && sudo apt-get install -y android-sdk
+          fi
+        fi
     - if: contains(matrix.os, 'ubuntu')
       name: Install Linux build dependencies
       run: |
