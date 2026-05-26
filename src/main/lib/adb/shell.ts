@@ -153,6 +153,23 @@ const createShell: IpcCreateShell = async function (deviceId) {
   })
   ptys[sessionId] = adbPty
 
+  // Inject shell init commands for colored output
+  // Android uses mksh which doesn't support bash-style \e or \[...\] in PS1.
+  // Use printf to produce real ESC characters, and \$PWD for dynamic path.
+  setTimeout(() => {
+    if (ptys[sessionId]) {
+      const initCommands = [
+        'export TERM=xterm-256color',
+        "_ESC=$(printf '\\033')",
+        'export PS1="${_ESC}[32m$(getprop ro.product.model)${_ESC}[0m:${_ESC}[34m\\$PWD${_ESC}[0m\\$ "',
+        "alias ls='ls --color=auto'",
+        "alias grep='grep --color=auto'",
+        'clear',
+      ].join(' && ')
+      adbPty.write(initCommands + '\n')
+    }
+  }, 300)
+
   return sessionId
 }
 

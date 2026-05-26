@@ -10,8 +10,6 @@ import {
   colorBgContainer,
   colorBgContainerDark,
   colorPrimary,
-  colorText,
-  colorTextDark,
   fontFamilyCode,
 } from 'common/theme'
 import copy from 'licia/copy'
@@ -63,6 +61,16 @@ export default observer(function Term(props: ITermProps) {
     }
 
     term.open(terminalRef.current!)
+    term.attachCustomKeyEventHandler((event) => {
+      if (event.type !== 'keydown') return true
+      if (event.ctrlKey && event.shiftKey && event.code === 'KeyC') {
+        if (term.hasSelection()) {
+          copy(term.getSelection())
+        }
+        return false
+      }
+      return true
+    })
     termRef.current = term
     props.onCreate(term)
 
@@ -192,23 +200,59 @@ export default observer(function Term(props: ITermProps) {
 })
 
 function getTheme(dark = false) {
-  let theme: ITheme = {
-    background: colorBgContainer,
-    foreground: colorText,
-    cursor: colorText,
-  }
-
   if (dark) {
-    theme = {
+    // WindTerm-style dark theme
+    return {
       background: colorBgContainerDark,
-      foreground: colorTextDark,
-      cursor: colorTextDark,
-    }
+      foreground: '#d4d4d4',
+      cursor: '#d4d4d4',
+      cursorAccent: colorBgContainerDark,
+      selectionForeground: '#ffffff',
+      selectionBackground: 'rgba(68, 138, 255, 0.35)',
+      selectionInactiveBackground: 'rgba(68, 138, 255, 0.2)',
+      black: '#1e1e1e',
+      red: '#f44747',
+      green: '#4ec94c',
+      yellow: '#e5c07b',
+      blue: '#42a5f5',
+      magenta: '#c678dd',
+      cyan: '#29b8db',
+      white: '#d4d4d4',
+      brightBlack: '#7f8c98',
+      brightRed: '#ff6b6b',
+      brightGreen: '#98c379',
+      brightYellow: '#e5c07b',
+      brightBlue: '#61afef',
+      brightMagenta: '#c678dd',
+      brightCyan: '#56b6c2',
+      brightWhite: '#ffffff',
+    } as ITheme
   }
 
+  // WindTerm-style light theme
   return {
-    selectionForeground: '#fff',
+    background: colorBgContainer,
+    foreground: '#383a42',
+    cursor: '#383a42',
+    cursorAccent: colorBgContainer,
+    selectionForeground: '#ffffff',
     selectionBackground: colorPrimary,
-    ...theme,
-  }
+    selectionInactiveBackground: 'rgba(79, 177, 85, 0.2)',
+    black: '#383a42',
+    red: '#e45649',
+    green: '#50a14f',
+    yellow: '#c18401',
+    blue: '#4078f2',
+    magenta: '#a626a4',
+    cyan: '#0184bc',
+    white: '#a0a1a7',
+    brightBlack: '#696c77',
+    brightRed: '#e06c75',
+    brightGreen: '#98c379',
+    brightYellow: '#e5c07b',
+    brightBlue: '#61afef',
+    brightMagenta: '#c678dd',
+    brightCyan: '#56b6c2',
+    brightWhite: '#ffffff',
+  } as ITheme
 }
