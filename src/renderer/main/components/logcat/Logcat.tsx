@@ -29,6 +29,7 @@ export default observer(function Logcat() {
     priority?: number
     package?: string
     tag?: string
+    message?: string
   }>({})
   const logcatRef = useRef<Logcat>(null)
   const entriesRef = useRef<any[]>([])
@@ -150,6 +151,12 @@ export default observer(function Logcat() {
                 tag: val,
               })
               break
+            case 'message':
+              setFilter({
+                ...filter,
+                message: val,
+              })
+              break
           }
         }}
       >
@@ -184,6 +191,11 @@ export default observer(function Logcat() {
           keyName="tag"
           placeholder={t('tag')}
           value={filter.tag || ''}
+        />
+        <LunaToolbarInput
+          keyName="message"
+          placeholder={t('message')}
+          value={filter.message || ''}
         />
         <LunaToolbarSpace />
         <ToolbarIcon
