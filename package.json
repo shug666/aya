@@ -6,6 +6,7 @@
   "description": "Android adb desktop app",
   "main": "dist/main/index.js",
   "scripts": {
+    "postinstall": "patch-package",
     "dev": "concurrently \"npm run dev:main\" \"npm run dev:preload\" \"npm run dev:renderer\"",
     "dev:main": "vite build --watch --config vite.main.ts --mode=development",
     "dev:preload": "vite build --watch --config vite.preload.ts --mode=development",
@@ -42,6 +43,7 @@
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.689.0",
     "@devicefarmer/adbkit": "^3.3.8",
+    "patch-package": "^8.0.0",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.3.2",

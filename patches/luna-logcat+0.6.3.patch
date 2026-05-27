@@ -1,0 +1,58 @@
+diff --git a/node_modules/luna-logcat/cjs/logcat/index.d.ts b/node_modules/luna-logcat/cjs/logcat/index.d.ts
+index 6aec436..72016a5 100644
+--- a/node_modules/luna-logcat/cjs/logcat/index.d.ts
++++ b/node_modules/luna-logcat/cjs/logcat/index.d.ts
+@@ -10,6 +10,7 @@ export interface IFilter {
+     priority?: number;
+     package?: string;
+     tag?: string;
++    message?: string;
+ }
+ interface IBaseEntry {
+     package: string;
+diff --git a/node_modules/luna-logcat/cjs/logcat/index.js b/node_modules/luna-logcat/cjs/logcat/index.js
+index d8c399d..1385dec 100644
+--- a/node_modules/luna-logcat/cjs/logcat/index.js
++++ b/node_modules/luna-logcat/cjs/logcat/index.js
+@@ -164,6 +164,12 @@ var Logcat = (function (_super) {
+                 return false;
+             }
+         }
++        var message = (0, trim_1.default)(filter.message || '');
++        if (message) {
++            if (!(0, contain_1.default)((0, lowerCase_1.default)(entry.message), (0, lowerCase_1.default)(message))) {
++                return false;
++            }
++        }
+         return true;
+     };
+     Logcat.prototype.initTpl = function () {
+diff --git a/node_modules/luna-logcat/esm/logcat/index.d.ts b/node_modules/luna-logcat/esm/logcat/index.d.ts
+index 6aec436..72016a5 100644
+--- a/node_modules/luna-logcat/esm/logcat/index.d.ts
++++ b/node_modules/luna-logcat/esm/logcat/index.d.ts
+@@ -10,6 +10,7 @@ export interface IFilter {
+     priority?: number;
+     package?: string;
+     tag?: string;
++    message?: string;
+ }
+ interface IBaseEntry {
+     package: string;
+diff --git a/node_modules/luna-logcat/esm/logcat/index.js b/node_modules/luna-logcat/esm/logcat/index.js
+index 6fa9923..75dbe20 100644
+--- a/node_modules/luna-logcat/esm/logcat/index.js
++++ b/node_modules/luna-logcat/esm/logcat/index.js
+@@ -135,6 +135,12 @@ export default class Logcat extends Component {
+                 return false;
+             }
+         }
++        const message = trim(filter.message || '');
++        if (message) {
++            if (!contain(lowerCase(entry.message), lowerCase(message))) {
++                return false;
++            }
++        }
+         return true;
+     }
+     initTpl() {
