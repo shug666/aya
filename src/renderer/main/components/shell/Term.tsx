@@ -83,18 +83,7 @@ export default observer(function Term(props: ITermProps) {
       if (sessionIdRef.current !== id) {
         return
       }
-      const out = colorizer.feed(data)
-      term.write(out)
-      // 临时诊断：同时打印原始输入和 colorizer 输出，排查着色问题。验证后删除。
-      const toHex = (s: string) => Array.from(s).map((ch) => {
-        const c = (ch as string).charCodeAt(0)
-        if (c === 0x0a) return '\\n'
-        if (c === 0x0d) return '\\r'
-        if (c === 0x1b) return '\\e'
-        if (c < 0x20 || c === 0x7f) return '\\x' + c.toString(16).padStart(2, '0')
-        return ch
-      }).join('')
-      console.log('[shellData] IN:', toHex(data), '| OUT:', toHex(out))
+      term.write(colorizer.feed(data))
     }
     const offShellData = main.on('shellData', onShellData)
 

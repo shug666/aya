@@ -38,11 +38,11 @@ function coloredTerminator(term: string): string {
 }
 
 // TUI / full-screen detection sequences.
+// Only alternate-screen enter/leave is used: a plain `clear` (`\e[H\e[2J`) is
+// NOT a TUI — it's a one-time screen clear used by our injected initCommands,
+// and must not permanently suspend colorization.
 const ALT_SCREEN_ENTER = '\x1b[?1049h'
 const ALT_SCREEN_LEAVE = '\x1b[?1049l'
-// Clear-screen / clear-to-end sequences as a secondary guard: a TUI often
-// starts by clearing, and we want to suspend before the next prompt redraw.
-const CLEAR_SCREEN_RE = /\x1b(?:\[2J|\[H|\[K|\[J)/
 
 // Prompt shape, anchored at line start. Accepts:
 //   Pixel6:/data/local/tmp$            (injected top-level PS1: model:path)
@@ -176,10 +176,6 @@ export function createPromptColorizer(): PromptColorizer {
       // After leaving a TUI, the next line is a fresh prompt.
       atLineStart = true
     }
-    // Secondary guard: a clear-screen at line start likely heralds a TUI.
-    if (atLineStart && CLEAR_SCREEN_RE.test(chunk)) {
-      tuiActive = true
-    }
 
     // In TUI mode, bypass line buffering and rewriting entirely.
     if (tuiActive) {
@@ -198,6 +194,32 @@ export function createPromptColorizer(): PromptColorizer {
       const rest = chunk.slice(nl + 1)
       atLineStart = true
       return head + (rest ? feed(rest) : '')
+    }
+
+    // We are at a line start. Strip leading ANSI control sequences (e.g.
+    // \e[H\e[2J from `clear`) and emit them immediately — they are not part
+    // of a prompt and must not be buffered into `pending` (which would get
+    // folded into the next prompt and mis-colored).
+    let leadingControl = ''
+    let stripped = chunk
+    while (stripped.charCodeAt(0) === 0x1b) {
+      // An ANSI CSI sequence: \e [ ... letter
+      if (stripped.charCodeAt(1) === 0x5b /* [ */) {
+        const m = /^\x1b\[[0-9;?]*[A-Za-z]/.exec(stripped)
+        if (m) {
+          leadingControl += m[0]
+          stripped = stripped.slice(m[0].length)
+          continue
+        }
+      }
+      // Other escape sequences (OSC etc.) — emit a single ESC + following
+      // control and continue stripping.
+      leadingControl += stripped[0]
+      stripped = stripped.slice(1)
+    }
+    if (leadingControl) {
+      // Emit control sequences now; process the rest as the line content.
+      return leadingControl + (stripped ? feed(stripped) : '')
     }
 
     // We are at a line start. Prepend any pending buffer.
