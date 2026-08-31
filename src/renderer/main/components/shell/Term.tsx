@@ -83,7 +83,19 @@ export default observer(function Term(props: ITermProps) {
       if (sessionIdRef.current !== id) {
         return
       }
-      term.write(colorizer.feed(data))
+      const out = colorizer.feed(data)
+      // 版本标记 + 诊断：确认运行的是修复版 c46ddc8+
+      const toHex = (s: string) => Array.from(s).map((ch) => {
+        const c = (ch as string).charCodeAt(0)
+        if (c === 0x0a) return '\\n'
+        if (c === 0x0d) return '\\r'
+        if (c === 0x1b) return '\\e'
+        if (c < 0x20 || c === 0x7f) return '\\x' + c.toString(16).padStart(2, '0')
+        return ch
+      }).join('')
+      console.log('[colorizer-v2] IN:', toHex(data), '| OUT:', toHex(out))
+      document.title = 'v2: ' + toHex(data).slice(0, 100)
+      term.write(out)
     }
     const offShellData = main.on('shellData', onShellData)
 
