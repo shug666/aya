@@ -37,10 +37,6 @@ function coloredTerminator(term: string): string {
   return term
 }
 
-// A prompt line that the device already colored (carries an ESC SGR). We skip
-// recoloring such lines to avoid conflicting with the device's own PS1.
-const HAS_ANSI = /\x1b\[/
-
 // TUI / full-screen detection sequences.
 const ALT_SCREEN_ENTER = '\x1b[?1049h'
 const ALT_SCREEN_LEAVE = '\x1b[?1049l'
@@ -88,10 +84,9 @@ export function createPromptColorizer(): PromptColorizer {
   function colorizePromptLine(text: string): string {
     // text is the full line content (no trailing newline). Try to colorize
     // the prompt portion; the rest (typed command echo) passes through.
-    if (HAS_ANSI.test(text)) {
-      // Device already emitted ANSI for this line (e.g. our injected PS1).
-      return text
-    }
+    // NOTE: no longer skip lines with existing ANSI. The PS1 is now injected
+    // as plain text, so the colorizer is the sole source of prompt color and
+    // the style is consistent before/after su (matching WindTerm behavior).
     const m = PROMPT_RE.exec(text)
     if (!m) {
       return text
@@ -123,13 +118,6 @@ export function createPromptColorizer(): PromptColorizer {
   function tryResolvePending(): { out: string; decided: boolean } {
     if (pending === '') {
       return { out: '', decided: true }
-    }
-    // If it already contains ANSI, the device colored it — emit as-is.
-    if (HAS_ANSI.test(pending)) {
-      const out = pending
-      pending = ''
-      atLineStart = false
-      return { out, decided: true }
     }
     // If a newline is present, the line is complete; colorize the prompt.
     const nl = pending.indexOf('\n')

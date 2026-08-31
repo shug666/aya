@@ -158,15 +158,16 @@ const createShell: IpcCreateShell = async function (deviceId) {
   })
   ptys[sessionId] = adbPty
 
-  // Inject shell init commands for colored output
-  // Android uses mksh which doesn't support bash-style \e or \[...\] in PS1.
-  // Use printf to produce real ESC characters, and \$PWD for dynamic path.
+  // Inject shell init commands.
+  // PS1 is plain text (no ANSI) — colorization is handled client-side by the
+  // prompt colorizer, so it stays consistent before/after su. Only TERM and
+  // command aliases are set up here; the PS1 shape is `model:path$ ` which the
+  // colorizer recognizes and recolors using the active WindTerm theme.
   setTimeout(() => {
     if (ptys[sessionId]) {
       const initCommands = [
         'export TERM=xterm-256color',
-        "_ESC=$(printf '\\033')",
-        'export PS1="${_ESC}[32m$(getprop ro.product.model)${_ESC}[0m:${_ESC}[34m\\$PWD${_ESC}[0m\\$ "',
+        'export PS1="$(getprop ro.product.model):$PWD\\$ "',
         "alias ls='ls --color=auto'",
         "alias grep='grep --color=auto'",
         'clear',
