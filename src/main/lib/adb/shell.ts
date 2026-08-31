@@ -163,13 +163,19 @@ const createShell: IpcCreateShell = async function (deviceId) {
   // prompt colorizer, so it stays consistent before/after su. Only TERM and
   // command aliases are set up here; the PS1 shape is `model:path$ ` which the
   // colorizer recognizes and recolors using the active WindTerm theme.
+  // A color-setup script is written to /data/local/tmp. The ENV variable
+  // makes mksh auto-load it on startup, and a `su` wrapper passes ENV through
+  // so the root shell also gets colors.
   setTimeout(() => {
     if (ptys[sessionId]) {
       const initCommands = [
-        'export TERM=xterm-256color',
-        'export PS1="$(getprop ro.product.model):$PWD\\$ "',
-        "alias ls='ls --color=auto'",
-        "alias grep='grep --color=auto'",
+        // Write a color env script (world-readable on /data/local/tmp).
+        'printf \'export TERM=xterm-256color\\nalias ls=\\\'ls --color=auto\\\'\\nalias grep=\\\'grep --color=auto\\\'\\nexport PS1=\\\'$(getprop ro.product.model):$PWD\\\\$ \\\'\\n\' > /data/local/tmp/.aya_colorrc',
+        // Load it in the current shell and set ENV for sub-shells.
+        '. /data/local/tmp/.aya_colorrc',
+        'export ENV=/data/local/tmp/.aya_colorrc',
+        // su wrapper: pass ENV to root shell via env so mksh loads color config.
+        'su() { env ENV=/data/local/tmp/.aya_colorrc command su "$@"; }',
         'clear',
       ].join(' && ')
       adbPty.write(initCommands + '\n')
