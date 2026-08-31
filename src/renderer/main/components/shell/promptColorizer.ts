@@ -10,11 +10,14 @@
 // - Color is injected as ANSI SGR selecting the 16-color palette already
 //   configured in Term.tsx's ITheme (WindTerm-style). No hardcoded hex; the
 //   actual rendered colors follow the active light/dark theme.
-// - Prompt detection is "middle-band": matches
-//     <optional user@host>:<path> <#|$> <space>
-//   plus a bare `# `/`$ ` fallback guarded by a path/host prefix, covering
-//   the injected top-level PS1, root default prompts, and bare-root prompts
-//   while avoiding most program output.
+// - Prompt detection matches a prompt at the START of a line:
+//     <optional user@host>:<optional path> <#|$> <space or end-of-line>
+//   covering the injected top-level PS1, root default prompts, and bare
+//   root prompts while avoiding most program output.
+// - Prompt lines from a PTY usually arrive WITHOUT a trailing newline (the
+//   shell waits for input). So we cannot wait for a newline to emit a line:
+//   we detect a complete prompt shape as soon as the terminator + space
+//   (or terminator at end of chunk) is visible and emit immediately.
 // - TUI safe-mode: on alternate-screen enter/leave and clear-screen sequences
 //   the colorizer suspends line rewriting so vim/top/less render correctly.
 
@@ -34,16 +37,6 @@ function coloredTerminator(term: string): string {
   return term
 }
 
-// Match: optional `user@host:`, then a path, then `#`/`$` and a trailing space.
-// Examples it should accept:
-//   Pixel6:/data/local/tmp$           (injected top-level PS1)
-//   root@Pixel6:/ #                   (root default)
-//   /data/local/tmp#                  (path-only root)
-// Captures: g1 = everything before the terminator (the "user@host:path" or
-// "path" segment), g2 = the terminator (`#` or `$`).
-const PROMPT_RE =
-  /^(?:([^\s:@]+@[^\s:]+):)?([^\s:]*?)\s*([#$]) (?=\S|$)/
-
 // A prompt line that the device already colored (carries an ESC SGR). We skip
 // recoloring such lines to avoid conflicting with the device's own PS1.
 const HAS_ANSI = /\x1b\[/
@@ -55,6 +48,24 @@ const ALT_SCREEN_LEAVE = '\x1b[?1049l'
 // starts by clearing, and we want to suspend before the next prompt redraw.
 const CLEAR_SCREEN_RE = /\x1b(?:\[2J|\[H|\[K|\[J)/
 
+// Prompt shape, anchored at line start. Accepts:
+//   Pixel6:/data/local/tmp$            (injected top-level PS1)
+//   root@Pixel6:/ #                    (root default)
+//   /data/local/tmp#                   (path-only root)
+//   #                                  (bare root, e.g. after su on some devices)
+//   $                                  (bare user)
+// The terminator must be followed by a space or be at the end of the visible
+// line (the shell waits for input with no trailing newline).
+// Captures: g1 = optional "user@host", g2 = optional path, g3 = terminator.
+const PROMPT_RE =
+  /^(?:([^\s:@]+@[^\s:]+):)?([^\s:]*?)\s*([#$])(?: (.*)$|$)/
+
+// Characters that can begin a prompt's pre-terminator segment. If the
+// accumulated line-start text contains a character that cannot appear in
+// (user@host:path), it cannot be a prompt and we flush it as plain output
+// immediately (no buffering). This keeps program output un-delayed.
+const PROMPT_PREFIX_OK = /^[^\n]*$/
+
 export interface PromptColorizer {
   feed: (chunk: string) => string
   flush: () => string
@@ -64,28 +75,28 @@ export function createPromptColorizer(): PromptColorizer {
   // Whether we are at the start of a logical line (i.e. the next bytes begin
   // a new prompt/line). Starts true because a fresh session begins at col 0.
   let atLineStart = true
-  // Buffered partial line that arrived without a trailing newline.
+  // Buffered line-start text that might still become a prompt. Only kept
+  // while at a line start and not yet decided.
   let pending = ''
   // True while a full-screen TUI is active; we pass data through verbatim.
   let tuiActive = false
 
-  function colorizeLine(line: string): string {
-    // Only attempt to colorize at a line start, and only the prompt portion.
-    if (HAS_ANSI.test(line)) {
+  function colorizePromptLine(text: string): string {
+    // text is the full line content (no trailing newline). Try to colorize
+    // the prompt portion; the rest (typed command echo) passes through.
+    if (HAS_ANSI.test(text)) {
       // Device already emitted ANSI for this line (e.g. our injected PS1).
-      // Pass through unchanged to avoid double-coloring.
-      return line
+      return text
     }
-    const m = PROMPT_RE.exec(line)
+    const m = PROMPT_RE.exec(text)
     if (!m) {
-      return line
+      return text
     }
-    const prefix = line.slice(0, m.index)
+    const prefix = text.slice(0, m.index)
     const userHost = m[1] // optional "user@host"
-    const path = m[2] // path segment
+    const path = m[2] // optional path segment
     const term = m[3] // "#" or "$"
 
-    // Rebuild the colored prompt.
     let colored = prefix
     if (userHost) {
       colored += SGR.green + userHost + ':' + SGR.reset
@@ -94,32 +105,76 @@ export function createPromptColorizer(): PromptColorizer {
       colored += SGR.blue + path + SGR.reset
     }
     colored += coloredTerminator(term)
-    // Append the rest of the line (after the prompt terminator + space)
-    // unchanged — this is usually the user's typed command echo.
+    // Append the rest (after the prompt terminator + space) unchanged.
     const restStart = m.index + m[0].length
-    colored += line.slice(restStart)
+    colored += text.slice(restStart)
     return colored
   }
 
+  // Try to decide a pending line-start buffer:
+  //  - returns { out, decided } where decided=true means the buffer is
+  //    fully resolved (emitted into `out`) and pending should clear;
+  //  - decided=false means we still need more bytes to decide.
+  function tryResolvePending(): { out: string; decided: boolean } {
+    if (pending === '') {
+      return { out: '', decided: true }
+    }
+    // If it already contains ANSI, the device colored it — emit as-is.
+    if (HAS_ANSI.test(pending)) {
+      const out = pending
+      pending = ''
+      atLineStart = false
+      return { out, decided: true }
+    }
+    // If a newline is present, the line is complete; colorize the prompt.
+    const nl = pending.indexOf('\n')
+    if (nl !== -1) {
+      const head = pending.slice(0, nl)
+      const tail = pending.slice(nl) // includes the \n
+      const out = colorizePromptLine(head) + tail
+      pending = ''
+      atLineStart = true
+      return { out, decided: true }
+    }
+    // No newline yet. Can it still be a prompt prefix? If it already has a
+    // terminator with a following space, it's a complete prompt — emit now.
+    const m = PROMPT_RE.exec(pending)
+    if (m && m[0] === pending) {
+      // Whole pending matches a prompt with no trailing command text and no
+      // newline (e.g. "Pixel6:/data/local/tmp$ " or "# "). Emit colored now
+      // so the prompt shows immediately; stay at line start=false (input
+      // will follow on the same line).
+      const out = colorizePromptLine(pending)
+      pending = ''
+      atLineStart = false
+      return { out, decided: true }
+    }
+    // If the buffer cannot possibly extend into a prompt prefix (contains a
+    // char that breaks user@host:path shape, e.g. a space mid-segment that
+    // isn't the terminator), emit it as plain output.
+    // Heuristic: a prompt prefix has no spaces before the terminator. If we
+    // see a space and the last non-space isn't #/$, it's not a prompt.
+    if (/ /.test(pending) && !/[#$]$/.test(pending.replace(/\s+$/, ''))) {
+      const out = pending
+      pending = ''
+      atLineStart = false
+      return { out, decided: true }
+    }
+    // Otherwise keep buffering — we need more bytes to decide.
+    return { out: '', decided: false }
+  }
+
   function flush(): string {
-    // Emit any buffered partial line (used on teardown / reset).
     if (pending === '') return ''
-    const out = atLineStart && !tuiActive ? colorizeLine(pending) : pending
+    const out = atLineStart && !tuiActive ? colorizePromptLine(pending) : pending
     pending = ''
     atLineStart = true
     return out
   }
 
   function feed(chunk: string): string {
-    // 0. Fold any buffered partial line to the front so the continuation
-    //    is colorized together with the start of the line.
-    if (pending) {
-      chunk = pending + chunk
-      pending = ''
-    }
-
-    // 1. Handle TUI state transitions. Toggle tuiActive and pass sequences
-    //    through verbatim.
+    // Handle TUI state transitions. Toggle tuiActive and pass sequences
+    // through verbatim.
     if (chunk.includes(ALT_SCREEN_ENTER)) {
       tuiActive = true
     }
@@ -138,32 +193,48 @@ export function createPromptColorizer(): PromptColorizer {
       return chunk
     }
 
-    // 2. Split into complete lines + a trailing partial (held back).
+    // Fast path: if we are mid-line (not at a line start), emit the chunk
+    // directly until we hit a newline, which returns us to line-start mode.
+    if (!atLineStart) {
+      const nl = chunk.indexOf('\n')
+      if (nl === -1) {
+        return chunk
+      }
+      // Emit up to and including the first newline; recurse for the rest.
+      const head = chunk.slice(0, nl + 1)
+      const rest = chunk.slice(nl + 1)
+      atLineStart = true
+      return head + (rest ? feed(rest) : '')
+    }
+
+    // We are at a line start. Prepend any pending buffer.
+    if (pending) {
+      chunk = pending + chunk
+      pending = ''
+    }
+
     let out = ''
     let cursor = 0
     while (cursor < chunk.length) {
       const nl = chunk.indexOf('\n', cursor)
       if (nl === -1) {
-        // Remainder is an incomplete line; buffer it for the next chunk.
+        // No newline in the remainder. Buffer it as a pending line-start and
+        // try to resolve immediately (a complete prompt w/o newline should
+        // emit now).
         pending = chunk.slice(cursor)
+        const r = tryResolvePending()
+        out += r.out
+        // If not decided, it stays in pending for the next chunk.
         break
       }
+      // Complete line including the newline.
       const line = chunk.slice(cursor, nl + 1)
-      if (atLineStart) {
-        out += colorizeLine(line)
-      } else {
-        out += line
-      }
+      const head = line.slice(0, -1) // without \n
+      out += colorizePromptLine(head) + '\n'
       atLineStart = true
       cursor = nl + 1
     }
 
-    // 3. The partial line (if any) stays in `pending` and is NOT emitted yet.
-    //    Holding an unfinished line back delays its render by at most one
-    //    chunk, which is acceptable for prompts and keeps coloring correct
-    //    when a terminator/space arrives in the next chunk. When the next
-    //    newline lands, step 0 folds `pending` in and colorizes the whole
-    //    line together.
     return out
   }
 
