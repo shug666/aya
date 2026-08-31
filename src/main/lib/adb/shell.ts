@@ -92,7 +92,12 @@ class AdbPty extends Emitter {
           const packets = ShellProtocol.decodeData(buf)
           for (let i = 0, len = packets.length; i < len; i++) {
             const { id, data } = packets[i]
-            if (id === ShellProtocol.STDOUT) {
+            // Forward both stdout and stderr into the data stream.
+            // Real terminals merge stderr onto the same screen; the v2
+            // protocol used to drop stderr (id === STDERR) silently, which
+            // hid error output from the device. The EXIT/CLOSE_STDIN/
+            // WINDOW_SIZE_CHANGE control packets are intentionally ignored.
+            if (id === ShellProtocol.STDOUT || id === ShellProtocol.STDERR) {
               this.emit('data', data.toString('utf8'))
             }
           }
