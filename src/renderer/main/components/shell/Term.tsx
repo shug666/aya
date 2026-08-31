@@ -6,6 +6,7 @@ import { CanvasAddon } from '@xterm/addon-canvas'
 import { WebglAddon } from '@xterm/addon-webgl'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { useEffect, useRef } from 'react'
+import { createPromptColorizer } from './promptColorizer'
 import {
   colorBgContainer,
   colorBgContainerDark,
@@ -74,11 +75,15 @@ export default observer(function Term(props: ITermProps) {
     termRef.current = term
     props.onCreate(term)
 
+    // Client-side prompt colorizer: colorizes prompts regardless of the
+    // device's PS1 (survives su / prompt resets) and suspends during TUIs.
+    const colorizer = createPromptColorizer()
+
     function onShellData(id, data) {
       if (sessionIdRef.current !== id) {
         return
       }
-      term.write(data)
+      term.write(colorizer.feed(data))
     }
     const offShellData = main.on('shellData', onShellData)
 
@@ -95,6 +100,11 @@ export default observer(function Term(props: ITermProps) {
 
     return () => {
       offShellData()
+      // Flush any buffered partial line before tearing down.
+      const remaining = colorizer.flush()
+      if (remaining) {
+        term.write(remaining)
+      }
       if (sessionIdRef.current) {
         main.killShell(sessionIdRef.current)
       }
