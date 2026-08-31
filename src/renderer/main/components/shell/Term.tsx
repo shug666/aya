@@ -93,8 +93,7 @@ export default observer(function Term(props: ITermProps) {
         if (c < 0x20 || c === 0x7f) return '\\x' + c.toString(16).padStart(2, '0')
         return ch
       }).join('')
-      console.log('[colorizer-v2] IN:', toHex(data), '| OUT:', toHex(out))
-      document.title = 'v2: ' + toHex(data).slice(0, 100)
+      console.log('[v2-fix] IN:', toHex(data), '| OUT:', toHex(out))
       term.write(out)
     }
     const offShellData = main.on('shellData', onShellData)
