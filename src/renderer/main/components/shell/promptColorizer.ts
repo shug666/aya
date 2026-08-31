@@ -49,16 +49,20 @@ const ALT_SCREEN_LEAVE = '\x1b[?1049l'
 const CLEAR_SCREEN_RE = /\x1b(?:\[2J|\[H|\[K|\[J)/
 
 // Prompt shape, anchored at line start. Accepts:
-//   Pixel6:/data/local/tmp$            (injected top-level PS1)
-//   root@Pixel6:/ #                    (root default)
+//   Pixel6:/data/local/tmp$            (injected top-level PS1: model:path)
+//   root@Pixel6:/ #                    (root default: user@host:path)
 //   /data/local/tmp#                   (path-only root)
 //   #                                  (bare root, e.g. after su on some devices)
 //   $                                  (bare user)
 // The terminator must be followed by a space or be at the end of the visible
 // line (the shell waits for input with no trailing newline).
-// Captures: g1 = optional "user@host", g2 = optional path, g3 = terminator.
+//
+// The segment before the terminator is split on the FIRST ':' into an
+// optional "user@host" or "model" prefix (g1, green) and an optional path
+// (g2, blue). A line with no ':' treats the whole pre-terminator text as the
+// prefix (e.g. bare "#"). g3 is the terminator ("#" red, "$" default).
 const PROMPT_RE =
-  /^(?:([^\s:@]+@[^\s:]+):)?([^\s:]*?)\s*([#$])(?: (.*)$|$)/
+  /^([^\s:#$]*?)(?::([^\s:#$]*?))?\s*([#$])(?: (.*)$|$)/
 
 // Characters that can begin a prompt's pre-terminator segment. If the
 // accumulated line-start text contains a character that cannot appear in
@@ -93,16 +97,17 @@ export function createPromptColorizer(): PromptColorizer {
       return text
     }
     const prefix = text.slice(0, m.index)
-    const userHost = m[1] // optional "user@host"
-    const path = m[2] // optional path segment
+    const head = m[1] // "model" or "user@host" (before the first ':')
+    const path = m[2] // optional path segment (after the ':')
     const term = m[3] // "#" or "$"
 
     let colored = prefix
-    if (userHost) {
-      colored += SGR.green + userHost + ':' + SGR.reset
+    if (head) {
+      colored += SGR.green + head + SGR.reset
     }
-    if (path) {
-      colored += SGR.blue + path + SGR.reset
+    if (path !== undefined) {
+      // A ':' separated head from path; re-insert it and color the path.
+      colored += ':' + SGR.blue + path + SGR.reset
     }
     colored += coloredTerminator(term)
     // Append the rest (after the prompt terminator + space) unchanged.
