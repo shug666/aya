@@ -85,9 +85,8 @@ export default observer(function Term(props: ITermProps) {
       }
       const out = colorizer.feed(data)
       term.write(out)
-      // 临时诊断：把原始数据的可读 hex 显示在文档标题栏，排查提示符着色。
-      // 打开 DevTools 看 console 也可。验证后删除。
-      const hex = Array.from(data).map((ch) => {
+      // 临时诊断：同时打印原始输入和 colorizer 输出，排查着色问题。验证后删除。
+      const toHex = (s: string) => Array.from(s).map((ch) => {
         const c = (ch as string).charCodeAt(0)
         if (c === 0x0a) return '\\n'
         if (c === 0x0d) return '\\r'
@@ -95,8 +94,7 @@ export default observer(function Term(props: ITermProps) {
         if (c < 0x20 || c === 0x7f) return '\\x' + c.toString(16).padStart(2, '0')
         return ch
       }).join('')
-      console.log('[shellData]', hex)
-      document.title = 'SHELL: ' + hex.slice(0, 200)
+      console.log('[shellData] IN:', toHex(data), '| OUT:', toHex(out))
     }
     const offShellData = main.on('shellData', onShellData)
 
