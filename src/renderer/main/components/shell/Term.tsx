@@ -83,7 +83,20 @@ export default observer(function Term(props: ITermProps) {
       if (sessionIdRef.current !== id) {
         return
       }
-      term.write(colorizer.feed(data))
+      const out = colorizer.feed(data)
+      term.write(out)
+      // 临时诊断：把原始数据的可读 hex 显示在文档标题栏，排查提示符着色。
+      // 打开 DevTools 看 console 也可。验证后删除。
+      const hex = Array.from(data).map((ch) => {
+        const c = (ch as string).charCodeAt(0)
+        if (c === 0x0a) return '\\n'
+        if (c === 0x0d) return '\\r'
+        if (c === 0x1b) return '\\e'
+        if (c < 0x20 || c === 0x7f) return '\\x' + c.toString(16).padStart(2, '0')
+        return ch
+      }).join('')
+      console.log('[shellData]', hex)
+      document.title = 'SHELL: ' + hex.slice(0, 200)
     }
     const offShellData = main.on('shellData', onShellData)
 
