@@ -3,6 +3,7 @@
 .term {
   width: 100%;
   height: 100%;
-  padding-top: #{theme.$padding-x-x-s}px;
-  padding-left: #{theme.$padding-x-x-s}px;
+  // Uniform viewport padding on all sides (WindTerm-style); prevents content
+  // from sitting flush against the right and bottom edges.
+  padding: 8px;
 }

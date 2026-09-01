@@ -92,12 +92,10 @@ class AdbPty extends Emitter {
           const packets = ShellProtocol.decodeData(buf)
           for (let i = 0, len = packets.length; i < len; i++) {
             const { id, data } = packets[i]
-            // Forward both stdout and stderr into the data stream.
-            // Real terminals merge stderr onto the same screen; the v2
-            // protocol used to drop stderr (id === STDERR) silently, which
-            // hid error output from the device. The EXIT/CLOSE_STDIN/
-            // WINDOW_SIZE_CHANGE control packets are intentionally ignored.
-            if (id === ShellProtocol.STDOUT || id === ShellProtocol.STDERR) {
+            // Forward only stdout into the data stream. stderr (id === STDERR)
+            // is not forwarded, matching the pre-colorization behavior.
+            // EXIT/CLOSE_STDIN/WINDOW_SIZE_CHANGE control packets are ignored.
+            if (id === ShellProtocol.STDOUT) {
               this.emit('data', data.toString('utf8'))
             }
           }
@@ -159,32 +157,15 @@ const createShell: IpcCreateShell = async function (deviceId) {
   ptys[sessionId] = adbPty
 
   // Inject shell init commands.
-  // PS1 is plain text (no ANSI) — colorization is handled client-side by the
-  // prompt colorizer, so it stays consistent before/after su. Only TERM and
-  // command aliases are set up here; the PS1 shape is `model:path$ ` which the
-  // colorizer recognizes and recolors using the active WindTerm theme.
-  // A color env script is written to /data/local/tmp/.aya_colorrc and loaded
-  // via ENV. The su wrapper passes ENV through so the root shell also gets
-  // TERM + color aliases.
+  // Colorless setup: PS1 is plain text (no ANSI), no ls/grep color aliases,
+  // no env script or su wrapper. TERM is exported only to declare terminal
+  // capability. The prompt `model:path$ ` is colorless and identical before
+  // and after su.
   setTimeout(() => {
     if (ptys[sessionId]) {
-      // Build the color env script content. Each line is a separate printf
-      // append to avoid quoting issues.
-      const rc = '/data/local/tmp/.aya_colorrc'
       const initCommands = [
         'export TERM=xterm-256color',
         'export PS1="$(getprop ro.product.model):$PWD\\$ "',
-        "alias ls='ls --color=auto'",
-        "alias grep='grep --color=auto'",
-        // Write the env script (no PS1 — colorizer handles prompts on both
-        // user and root shells). Single quotes prevent expansion.
-        `echo 'export TERM=xterm-256color' > ${rc}`,
-        `echo "alias ls='ls --color=auto'" >> ${rc}`,
-        `echo "alias grep='grep --color=auto'" >> ${rc}`,
-        `export ENV=${rc}`,
-        // su wrapper: run the real su (command su bypasses the function
-        // recursion) with ENV exported so the root mksh loads color config.
-        `su() { ENV=${rc} command su "$@"; }`,
         'clear',
       ].join(' && ')
       adbPty.write(initCommands + '\n')
