@@ -223,6 +223,11 @@ export default observer(function Term(props: ITermProps) {
     const bounds = findBlockBounds(buffer, bufLine)
     if (bounds) {
       term.selectLines(bounds.start, bounds.end)
+      // Restore focus to xterm: the double-click landed on the gutter (a
+      // sibling div), which steals focus from the terminal. Without this,
+      // Ctrl+Shift+C copy fails because the terminal's selection/textarea no
+      // longer has focus.
+      term.focus()
     }
   }
 
