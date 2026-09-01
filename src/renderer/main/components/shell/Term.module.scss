@@ -1,24 +1,38 @@
 @use '../../../theme' as theme;
 
+// Terminal shell: a left gutter (command-block select) + the xterm viewport.
+// The gutter sits inside the dark terminal area; the xterm container is
+// offset right by the gutter width so FitAddon computes fewer columns and
+// text never enters the gutter band.
 .term {
   position: relative;
   width: 100%;
   height: 100%;
-  // WindTerm-style uniform padding on top/right/bottom. The left side is
-  // widened to make room for the command-block gutter (see .gutter).
-  padding: 8px 8px 8px 24px;
+  // Uniform WindTerm-style padding on all sides.
+  padding: 8px;
 }
 
 // Left gutter: double-click selects the command block (input + output) for
-// the row nearest the click. Sits inside the .term left padding band,
-// outside xterm's character grid. Does not receive text selection and
-// stops double-click from reaching xterm.
+// the row nearest the click. Black background matches the terminal canvas so
+// it reads as empty space inside the terminal. Same top/height as the xterm
+// viewport, so click pixel y maps directly to a viewport row.
 .gutter {
   position: absolute;
-  left: 4px;
+  left: 8px;
   top: 8px;
   bottom: 8px;
   width: 16px;
+  background: #000;
   user-select: none;
   cursor: default;
+  z-index: 1;
+}
+
+// xterm container: shifted right past the gutter so its width (measured by
+// FitAddon) excludes the gutter, leaving the gutter as empty canvas space.
+.termCanvas {
+  position: relative;
+  width: calc(100% - 16px);
+  height: 100%;
+  margin-left: 16px;
 }

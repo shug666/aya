@@ -26,10 +26,15 @@ const PREFIX = '[^\\s:#$]*'
 // word chars but no spaces or terminators.
 const PATH = '[^\\s:#$]*'
 
-// Full prompt: optional prefix, optional ':path', a terminator, optional
-// trailing space. Anchored at the start of the (trimmed) line content.
+// Full prompt: the line STARTS with a prompt shape — an optional prefix,
+// optional ':path', then a terminator (`#`/`$`) followed by a space or the
+// end of the line. The command text the user typed may follow the prompt on
+// the SAME line (e.g. `TB355FU:/data$ ls -la`), so we match the prompt as a
+// prefix, not a whole-line match. The lookahead `(?=\s|$)` accepts a trailing
+// space (typed command follows) or end-of-line (bare prompt awaiting input),
+// and rejects `$` immediately followed by a non-space char (e.g. `echo x$y`).
 export const PROMPT_RE = new RegExp(
-  `^(?:${PREFIX}(?::${PATH})?)?\\s*${TERMINATOR}\\s*$`
+  `^(?:${PREFIX}(?::${PATH})?)?\\s*${TERMINATOR}(?=\\s|$)`
 )
 
 // Read a buffer line as trimmed text. Returns '' for non-existent lines.

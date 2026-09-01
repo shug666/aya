@@ -231,7 +231,6 @@ export default observer(function Term(props: ITermProps) {
       <div
         className={Style.term}
         style={{ display: props.visible ? 'block' : 'none' }}
-        ref={terminalRef}
         onContextMenu={onContextMenu}
       >
         <div
@@ -239,6 +238,7 @@ export default observer(function Term(props: ITermProps) {
           ref={gutterRef}
           onDoubleClick={onGutterDoubleClick}
         />
+        <div className={Style.termCanvas} ref={terminalRef} />
       </div>
     </>
   )
