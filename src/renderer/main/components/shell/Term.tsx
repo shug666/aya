@@ -7,12 +7,7 @@ import { WebglAddon } from '@xterm/addon-webgl'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { useEffect, useRef } from 'react'
 import { createPromptColorizer } from './promptColorizer'
-import {
-  colorBgContainer,
-  colorBgContainerDark,
-  colorPrimary,
-  fontFamilyCode,
-} from 'common/theme'
+import { fontFamilyCode } from 'common/theme'
 import copy from 'licia/copy'
 import Style from './Term.module.scss'
 import '@xterm/xterm/css/xterm.css'
@@ -211,58 +206,58 @@ export default observer(function Term(props: ITermProps) {
 
 function getTheme(dark = false) {
   if (dark) {
-    // WindTerm-style dark theme
+    // WindTerm Dark theme — deep blue-grey background, soft balanced ANSI.
     return {
-      background: colorBgContainerDark,
-      foreground: '#d4d4d4',
-      cursor: '#d4d4d4',
-      cursorAccent: colorBgContainerDark,
+      background: '#233339',
+      foreground: '#cad3d6',
+      cursor: '#cad3d6',
+      cursorAccent: '#233339',
       selectionForeground: '#ffffff',
-      selectionBackground: 'rgba(68, 138, 255, 0.35)',
-      selectionInactiveBackground: 'rgba(68, 138, 255, 0.2)',
-      black: '#1e1e1e',
-      red: '#f44747',
-      green: '#4ec94c',
-      yellow: '#e5c07b',
-      blue: '#42a5f5',
-      magenta: '#c678dd',
-      cyan: '#29b8db',
-      white: '#d4d4d4',
-      brightBlack: '#7f8c98',
-      brightRed: '#ff6b6b',
-      brightGreen: '#98c379',
-      brightYellow: '#e5c07b',
-      brightBlue: '#61afef',
-      brightMagenta: '#c678dd',
+      selectionBackground: 'rgba(91, 158, 198, 0.35)',
+      selectionInactiveBackground: 'rgba(91, 158, 198, 0.2)',
+      black: '#000000',
+      red: '#bb4546',
+      green: '#5d8e3f',
+      yellow: '#b58900',
+      blue: '#5d97cf',
+      magenta: '#b06699',
+      cyan: '#3f9eae',
+      white: '#cad3d6',
+      brightBlack: '#5b6266',
+      brightRed: '#d66b6b',
+      brightGreen: '#94c150',
+      brightYellow: '#d6a651',
+      brightBlue: '#7aa6da',
+      brightMagenta: '#c79fc4',
       brightCyan: '#56b6c2',
       brightWhite: '#ffffff',
     } as ITheme
   }
 
-  // WindTerm-style light theme
+  // WindTerm DigeWhite theme — warm off-white, gentle ANSI colors.
   return {
-    background: colorBgContainer,
-    foreground: '#383a42',
-    cursor: '#383a42',
-    cursorAccent: colorBgContainer,
+    background: '#f9f5ec',
+    foreground: '#3f4248',
+    cursor: '#3f4248',
+    cursorAccent: '#f9f5ec',
     selectionForeground: '#ffffff',
-    selectionBackground: colorPrimary,
-    selectionInactiveBackground: 'rgba(79, 177, 85, 0.2)',
-    black: '#383a42',
-    red: '#e45649',
-    green: '#50a14f',
-    yellow: '#c18401',
-    blue: '#4078f2',
-    magenta: '#a626a4',
-    cyan: '#0184bc',
-    white: '#a0a1a7',
-    brightBlack: '#696c77',
-    brightRed: '#e06c75',
-    brightGreen: '#98c379',
-    brightYellow: '#e5c07b',
-    brightBlue: '#61afef',
-    brightMagenta: '#c678dd',
-    brightCyan: '#56b6c2',
+    selectionBackground: 'rgba(79, 137, 198, 0.3)',
+    selectionInactiveBackground: 'rgba(79, 137, 198, 0.18)',
+    black: '#3f4248',
+    red: '#b14545',
+    green: '#5f8e3f',
+    yellow: '#a8760a',
+    blue: '#3f6fb0',
+    magenta: '#9b4f8c',
+    cyan: '#2e7d9c',
+    white: '#9da0a4',
+    brightBlack: '#71757a',
+    brightRed: '#c25c5c',
+    brightGreen: '#79a854',
+    brightYellow: '#c89030',
+    brightBlue: '#5688c4',
+    brightMagenta: '#ad689f',
+    brightCyan: '#4b9bb8',
     brightWhite: '#ffffff',
   } as ITheme
 }
