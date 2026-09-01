@@ -163,19 +163,26 @@ const createShell: IpcCreateShell = async function (deviceId) {
   // prompt colorizer, so it stays consistent before/after su. Only TERM and
   // command aliases are set up here; the PS1 shape is `model:path$ ` which the
   // colorizer recognizes and recolors using the active WindTerm theme.
-  // A color-setup script is written to /data/local/tmp. The ENV variable
-  // makes mksh auto-load it on startup, and a `su` wrapper passes ENV through
-  // so the root shell also gets colors.
+  // A color env script is written to /data/local/tmp/.aya_colorrc and loaded
+  // via ENV. The su wrapper passes ENV through so the root shell also gets
+  // TERM + color aliases.
   setTimeout(() => {
     if (ptys[sessionId]) {
+      // Build the color env script content. Each line is a separate printf
+      // append to avoid quoting issues.
+      const rc = '/data/local/tmp/.aya_colorrc'
       const initCommands = [
-        // Write a color env script (world-readable on /data/local/tmp).
-        'printf \'export TERM=xterm-256color\\nalias ls=\\\'ls --color=auto\\\'\\nalias grep=\\\'grep --color=auto\\\'\\nexport PS1=\\\'$(getprop ro.product.model):$PWD\\\\$ \\\'\\n\' > /data/local/tmp/.aya_colorrc',
-        // Load it in the current shell and set ENV for sub-shells.
-        '. /data/local/tmp/.aya_colorrc',
-        'export ENV=/data/local/tmp/.aya_colorrc',
-        // su wrapper: pass ENV to root shell via env so mksh loads color config.
-        'su() { env ENV=/data/local/tmp/.aya_colorrc command su "$@"; }',
+        'export TERM=xterm-256color',
+        'export PS1="$(getprop ro.product.model):$PWD\\$ "',
+        "alias ls='ls --color=auto'",
+        "alias grep='grep --color=auto'",
+        // Write the env script (no PS1 — colorizer handles prompts on both
+        // user and root shells). Single quotes prevent expansion.
+        `echo 'export TERM=xterm-256color' > ${rc}`,
+        `echo "alias ls='ls --color=auto'" >> ${rc}`,
+        `echo "alias grep='grep --color=auto'" >> ${rc}`,
+        `export ENV=${rc}`,
+        `su() { env ENV=${rc} command su "$@"; }`,
         'clear',
       ].join(' && ')
       adbPty.write(initCommands + '\n')
