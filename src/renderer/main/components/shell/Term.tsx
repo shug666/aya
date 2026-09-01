@@ -7,6 +7,7 @@ import { WebglAddon } from '@xterm/addon-webgl'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { useEffect, useRef } from 'react'
 import copy from 'licia/copy'
+import { findBlockBounds } from './commandBlock'
 import Style from './Term.module.scss'
 import '@xterm/xterm/css/xterm.css'
 import { t } from 'common/util'
@@ -24,6 +25,7 @@ export default observer(function Term(props: ITermProps) {
   const termRef = useRef<Terminal>(null)
   const fitAddonRef = useRef<FitAddon>(null)
   const sessionIdRef = useRef('')
+  const gutterRef = useRef<HTMLDivElement>(null)
 
   const { device } = store
 
@@ -201,6 +203,29 @@ export default observer(function Term(props: ITermProps) {
     contextMenu(e, template)
   }
 
+  // Double-click the left gutter: select the command block (prompt + output)
+  // nearest the clicked row via a lazy buffer scan. Disabled in TUI/alt buffer.
+  function onGutterDoubleClick(e: React.MouseEvent<HTMLDivElement>) {
+    const term = termRef.current
+    const gutter = gutterRef.current
+    if (!term || !gutter) return
+    const buffer = term.buffer.active
+    if (buffer.type === 'alternate') return // TUI / full-screen app: no blocks
+    const rows = term.rows
+    if (rows <= 0) return
+    // Map click pixel y → buffer line. cellHeight from the whole viewport
+    // (clientHeight / rows) avoids fragile per-cell measurement.
+    const cellHeight = (term.element?.clientHeight ?? 0) / rows
+    if (cellHeight <= 0) return
+    const offsetY = e.clientY - gutter.getBoundingClientRect().top
+    const viewportRow = Math.floor(offsetY / cellHeight)
+    const bufLine = Math.round(buffer.viewportY) + viewportRow
+    const bounds = findBlockBounds(buffer, bufLine)
+    if (bounds) {
+      term.selectLines(bounds.start, bounds.end)
+    }
+  }
+
   return (
     <>
       <div
@@ -208,7 +233,13 @@ export default observer(function Term(props: ITermProps) {
         style={{ display: props.visible ? 'block' : 'none' }}
         ref={terminalRef}
         onContextMenu={onContextMenu}
-      />
+      >
+        <div
+          className={Style.gutter}
+          ref={gutterRef}
+          onDoubleClick={onGutterDoubleClick}
+        />
+      </div>
     </>
   )
 })

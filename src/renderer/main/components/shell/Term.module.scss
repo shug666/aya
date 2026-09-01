@@ -1,9 +1,24 @@
 @use '../../../theme' as theme;
 
 .term {
+  position: relative;
   width: 100%;
   height: 100%;
-  // Uniform viewport padding on all sides (WindTerm-style); prevents content
-  // from sitting flush against the right and bottom edges.
-  padding: 8px;
+  // WindTerm-style uniform padding on top/right/bottom. The left side is
+  // widened to make room for the command-block gutter (see .gutter).
+  padding: 8px 8px 8px 24px;
+}
+
+// Left gutter: double-click selects the command block (input + output) for
+// the row nearest the click. Sits inside the .term left padding band,
+// outside xterm's character grid. Does not receive text selection and
+// stops double-click from reaching xterm.
+.gutter {
+  position: absolute;
+  left: 4px;
+  top: 8px;
+  bottom: 8px;
+  width: 16px;
+  user-select: none;
+  cursor: default;
 }
