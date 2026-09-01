@@ -182,7 +182,9 @@ const createShell: IpcCreateShell = async function (deviceId) {
         `echo "alias ls='ls --color=auto'" >> ${rc}`,
         `echo "alias grep='grep --color=auto'" >> ${rc}`,
         `export ENV=${rc}`,
-        `su() { env ENV=${rc} command su "$@"; }`,
+        // su wrapper: run the real su (command su bypasses the function
+        // recursion) with ENV exported so the root mksh loads color config.
+        `su() { ENV=${rc} command su "$@"; }`,
         'clear',
       ].join(' && ')
       adbPty.write(initCommands + '\n')
