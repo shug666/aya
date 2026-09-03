@@ -68,6 +68,8 @@ export default Object.assign(mainObj, {
   setDevicesStore: invoke<IpcSetStore>('setDevicesStore'),
   getShellStore: invoke<IpcGetStore>('getShellStore'),
   setShellStore: invoke<IpcSetStore>('setShellStore'),
+  getLogcatStore: invoke<IpcGetStore>('getLogcatStore'),
+  setLogcatStore: invoke<IpcSetStore>('setLogcatStore'),
   writeFile: invoke<(filePath: string, content: string) => Promise<void>>('writeFile'),
   readFile: invoke<(filePath: string) => Promise<string>>('readFile'),
   setScreencastAlwaysOnTop: invoke<IpcSetScreencastAlwaysOnTop>(

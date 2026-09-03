@@ -106,3 +106,9 @@ export const getShellStore = memoize(function () {
     ],
   })
 })
+
+export const getLogcatStore = memoize(function () {
+  return new FileStore(getUserDataPath('data/logcat.json'), {
+    fontSize: 13,
+  })
+})

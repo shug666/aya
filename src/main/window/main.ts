@@ -1,5 +1,5 @@
 import { app, BrowserWindow, session } from 'electron'
-import { getMainStore, getShellStore } from '../lib/store'
+import { getMainStore, getShellStore, getLogcatStore } from '../lib/store'
 import { getOpenFileFromArgv, handleEvent } from 'share/main/lib/util'
 import * as window from 'share/main/lib/window'
 import * as screencast from './screencast'
@@ -15,6 +15,7 @@ const logger = log('mainWin')
 
 const store = getMainStore()
 const shellStore = getShellStore()
+const logcatStore = getLogcatStore()
 
 let win: BrowserWindow | null = null
 
@@ -75,6 +76,10 @@ const initIpc = once(() => {
     ((name, val) => shellStore.set(name, val))
   ))
   handleEvent('getShellStore', <IpcGetStore>((name) => shellStore.get(name)))
+  handleEvent('setLogcatStore', <IpcSetStore>(
+    ((name, val) => logcatStore.set(name, val))
+  ))
+  handleEvent('getLogcatStore', <IpcGetStore>((name) => logcatStore.get(name)))
   handleEvent('writeFile', async (filePath: string, content: string) => {
     await fs.writeFile(filePath, content, 'utf-8')
   })

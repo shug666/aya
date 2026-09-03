@@ -1,8 +1,14 @@
 diff --git a/node_modules/luna-logcat/cjs/logcat/index.d.ts b/node_modules/luna-logcat/cjs/logcat/index.d.ts
-index 6aec436..72016a5 100644
+index 6aec436..e37a7ae 100644
 --- a/node_modules/luna-logcat/cjs/logcat/index.d.ts
 +++ b/node_modules/luna-logcat/cjs/logcat/index.d.ts
-@@ -10,6 +10,7 @@ export interface IFilter {
+@@ -5,11 +5,13 @@ export interface IOptions extends IComponentOptions {
+     entries?: IEntry[];
+     view?: 'standard' | 'compact';
+     wrapLongLines?: boolean;
++    fontSize?: number;
+ }
+ export interface IFilter {
      priority?: number;
      package?: string;
      tag?: string;
@@ -11,10 +17,18 @@ index 6aec436..72016a5 100644
  interface IBaseEntry {
      package: string;
 diff --git a/node_modules/luna-logcat/cjs/logcat/index.js b/node_modules/luna-logcat/cjs/logcat/index.js
-index d8c399d..1385dec 100644
+index d8c399d..78179b5 100644
 --- a/node_modules/luna-logcat/cjs/logcat/index.js
 +++ b/node_modules/luna-logcat/cjs/logcat/index.js
-@@ -164,6 +164,12 @@ var Logcat = (function (_super) {
+@@ -68,6 +68,7 @@ var Logcat = (function (_super) {
+             view: 'standard',
+             entries: [],
+             wrapLongLines: false,
++            fontSize: 13,
+         });
+         _this.resizeSensor = new ResizeSensor_1.default(container);
+         _this.initTpl();
+@@ -164,6 +165,12 @@ var Logcat = (function (_super) {
                  return false;
              }
          }
@@ -27,11 +41,56 @@ index d8c399d..1385dec 100644
          return true;
      };
      Logcat.prototype.initTpl = function () {
+@@ -185,6 +192,10 @@ var Logcat = (function (_super) {
+                     }
+                     _this.virtualList.update();
+                     break;
++                case 'fontSize':
++                    _this.container.style.setProperty('--luna-logcat-font-size', val + 'px');
++                    _this.virtualList.update();
++                    break;
+                 case 'maxNum':
+                     if (val > 0 && entries.length > val) {
+                         _this.entries = entries.slice(entries.length - val);
+diff --git a/node_modules/luna-logcat/cjs/logcat/react.js b/node_modules/luna-logcat/cjs/logcat/react.js
+index 5538630..c85186f 100644
+--- a/node_modules/luna-logcat/cjs/logcat/react.js
++++ b/node_modules/luna-logcat/cjs/logcat/react.js
+@@ -13,7 +13,7 @@ var LunaLogcat = function (props) {
+     var logcat = (0, react_1.useRef)();
+     var prevProps = (0, hooks_1.usePrevious)(props);
+     (0, react_1.useEffect)(function () {
+-        var theme = props.theme, maxNum = props.maxNum, wrapLongLines = props.wrapLongLines, filter = props.filter, entries = props.entries, view = props.view;
++        var theme = props.theme, maxNum = props.maxNum, wrapLongLines = props.wrapLongLines, filter = props.filter, entries = props.entries, view = props.view, fontSize = props.fontSize;
+         logcat.current = new index_1.default(logcatRef.current, {
+             theme: theme,
+             filter: filter,
+@@ -21,12 +21,13 @@ var LunaLogcat = function (props) {
+             wrapLongLines: wrapLongLines,
+             entries: entries,
+             view: view,
++            fontSize: fontSize,
+         });
+         props.onCreate && props.onCreate(logcat.current);
+         return function () { var _a; return (_a = logcat.current) === null || _a === void 0 ? void 0 : _a.destroy(); };
+     }, []);
+     (0, hooks_1.useEvent)(logcat, 'contextmenu', prevProps === null || prevProps === void 0 ? void 0 : prevProps.onContextMenu, props.onContextMenu);
+-    (0, each_1.default)(['theme', 'filter', 'maxNum', 'wrapLongLines', 'view'], function (key) {
++    (0, each_1.default)(['theme', 'filter', 'maxNum', 'wrapLongLines', 'view', 'fontSize'], function (key) {
+         (0, hooks_1.useOption)(logcat, key, props[key]);
+     });
+     return ((0, jsx_runtime_1.jsx)("div", { className: props.className || '', ref: logcatRef, style: props.style }));
 diff --git a/node_modules/luna-logcat/esm/logcat/index.d.ts b/node_modules/luna-logcat/esm/logcat/index.d.ts
-index 6aec436..72016a5 100644
+index 6aec436..e37a7ae 100644
 --- a/node_modules/luna-logcat/esm/logcat/index.d.ts
 +++ b/node_modules/luna-logcat/esm/logcat/index.d.ts
-@@ -10,6 +10,7 @@ export interface IFilter {
+@@ -5,11 +5,13 @@ export interface IOptions extends IComponentOptions {
+     entries?: IEntry[];
+     view?: 'standard' | 'compact';
+     wrapLongLines?: boolean;
++    fontSize?: number;
+ }
+ export interface IFilter {
      priority?: number;
      package?: string;
      tag?: string;
@@ -40,10 +99,18 @@ index 6aec436..72016a5 100644
  interface IBaseEntry {
      package: string;
 diff --git a/node_modules/luna-logcat/esm/logcat/index.js b/node_modules/luna-logcat/esm/logcat/index.js
-index 6fa9923..75dbe20 100644
+index 6fa9923..9f548e7 100644
 --- a/node_modules/luna-logcat/esm/logcat/index.js
 +++ b/node_modules/luna-logcat/esm/logcat/index.js
-@@ -135,6 +135,12 @@ export default class Logcat extends Component {
+@@ -35,6 +35,7 @@ export default class Logcat extends Component {
+             view: 'standard',
+             entries: [],
+             wrapLongLines: false,
++            fontSize: 13,
+         });
+         this.resizeSensor = new ResizeSensor(container);
+         this.initTpl();
+@@ -135,6 +136,12 @@ export default class Logcat extends Component {
                  return false;
              }
          }
@@ -56,3 +123,52 @@ index 6fa9923..75dbe20 100644
          return true;
      }
      initTpl() {
+@@ -155,6 +162,10 @@ export default class Logcat extends Component {
+                     }
+                     this.virtualList.update();
+                     break;
++                case 'fontSize':
++                    this.container.style.setProperty('--luna-logcat-font-size', val + 'px');
++                    this.virtualList.update();
++                    break;
+                 case 'maxNum':
+                     if (val > 0 && entries.length > val) {
+                         this.entries = entries.slice(entries.length - val);
+diff --git a/node_modules/luna-logcat/esm/logcat/react.js b/node_modules/luna-logcat/esm/logcat/react.js
+index a1e00e7..20585c3 100644
+--- a/node_modules/luna-logcat/esm/logcat/react.js
++++ b/node_modules/luna-logcat/esm/logcat/react.js
+@@ -8,7 +8,7 @@ const LunaLogcat = (props) => {
+     const logcat = useRef();
+     const prevProps = usePrevious(props);
+     useEffect(() => {
+-        const { theme, maxNum, wrapLongLines, filter, entries, view } = props;
++        const { theme, maxNum, wrapLongLines, filter, entries, view, fontSize } = props;
+         logcat.current = new Logcat(logcatRef.current, {
+             theme,
+             filter,
+@@ -16,12 +16,13 @@ const LunaLogcat = (props) => {
+             wrapLongLines,
+             entries,
+             view,
++            fontSize,
+         });
+         props.onCreate && props.onCreate(logcat.current);
+         return () => logcat.current?.destroy();
+     }, []);
+     useEvent(logcat, 'contextmenu', prevProps?.onContextMenu, props.onContextMenu);
+-    each(['theme', 'filter', 'maxNum', 'wrapLongLines', 'view'], (key) => {
++    each(['theme', 'filter', 'maxNum', 'wrapLongLines', 'view', 'fontSize'], (key) => {
+         useOption(logcat, key, props[key]);
+     });
+     return (_jsx("div", { className: props.className || '', ref: logcatRef, style: props.style }));
+diff --git a/node_modules/luna-logcat/luna-logcat.css b/node_modules/luna-logcat/luna-logcat.css
+index c28172a..c632d9a 100644
+--- a/node_modules/luna-logcat/luna-logcat.css
++++ b/node_modules/luna-logcat/luna-logcat.css
+@@ -1,3 +1,3 @@
+-.luna-logcat{unicode-bidi:embed;position:relative;line-height:1.5em;border:1px solid;white-space:pre;overflow:hidden;color:rgba(0,0,0,.88);color:var(--luna-color-text,rgba(0,0,0,.88));background-color:#fff;background-color:var(--luna-color-bg-container,#fff);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol","Noto Color Emoji";font-family:var(--luna-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji");box-sizing:border-box;-webkit-user-select:none;-moz-user-select:none;user-select:none;font-size:14px}.luna-logcat .luna-logcat-hidden,.luna-logcat.luna-logcat-hidden{display:none}.luna-logcat .luna-logcat-invisible,.luna-logcat.luna-logcat-invisible{visibility:hidden}.luna-logcat *{box-sizing:border-box}.luna-logcat.luna-logcat-theme-dark{color-scheme:dark;color:hsla(0,0%,100%,.85);color:var(--luna-color-text-dark,rgba(255,255,255,.85));background-color:#141414;background-color:var(--luna-color-bg-container-dark,#141414)}.luna-logcat{-webkit-user-select:text;-moz-user-select:text;user-select:text;font-family:ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace}.luna-logcat.luna-logcat-wrap-long-lines{white-space:pre-wrap;word-break:break-all}.luna-logcat.luna-logcat-wrap-long-lines .luna-logcat-message{display:inline}.luna-logcat-entry{padding-left:4px;font-size:12px}.luna-logcat-date,.luna-logcat-package,.luna-logcat-pid,.luna-logcat-priority,.luna-logcat-tag{display:inline-block;white-space:nowrap;vertical-align:top}.luna-logcat-message{display:inline-block}.luna-logcat-wrap-long-lines .luna-logcat-message{display:inline}.luna-logcat-date{margin-right:4px}.luna-logcat-pid{width:100px;text-align:center}.luna-logcat-package,.luna-logcat-tag{overflow:hidden;text-overflow:ellipsis;width:150px}.luna-logcat-priority{padding:0 8px}.luna-logcat-theme-light{border-color:#d9d9d9;border-color:var(--luna-color-border,#d9d9d9)}.luna-logcat-theme-light .luna-logcat-W .luna-logcat-priority{background-color:#faad14;background-color:var(--luna-color-warning-text,#faad14)}.luna-logcat-theme-light .luna-logcat-W .luna-logcat-message{color:#faad14;color:var(--luna-color-warning-text,#faad14)}.luna-logcat-theme-light .luna-logcat-E .luna-logcat-priority{background-color:#ff4d4f;background-color:var(--luna-color-error-text,#ff4d4f)}.luna-logcat-theme-light .luna-logcat-E .luna-logcat-message{color:#ff4d4f;color:var(--luna-color-error-text,#ff4d4f)}.luna-logcat-theme-light .luna-logcat-D .luna-logcat-priority{background-color:#52c41a;background-color:var(--luna-color-success-text,#52c41a)}.luna-logcat-theme-light .luna-logcat-I .luna-logcat-priority{background-color:#1677ff;background-color:var(--luna-color-info-text,#1677ff)}.luna-logcat-theme-light .luna-logcat-color-blue-6{color:#1677ff}.luna-logcat-theme-light .luna-logcat-color-blue-7{color:#0958d9}.luna-logcat-theme-light .luna-logcat-color-blue-8{color:#003eb3}.luna-logcat-theme-light .luna-logcat-color-blue-9{color:#002c8c}.luna-logcat-theme-light .luna-logcat-color-blue-10{color:#001d66}.luna-logcat-theme-light .luna-logcat-color-purple-6{color:#722ed1}.luna-logcat-theme-light .luna-logcat-color-purple-7{color:#531dab}.luna-logcat-theme-light .luna-logcat-color-purple-8{color:#391085}.luna-logcat-theme-light .luna-logcat-color-purple-9{color:#22075e}.luna-logcat-theme-light .luna-logcat-color-purple-10{color:#120338}.luna-logcat-theme-light .luna-logcat-color-cyan-6{color:#13c2c2}.luna-logcat-theme-light .luna-logcat-color-cyan-7{color:#08979c}.luna-logcat-theme-light .luna-logcat-color-cyan-8{color:#006d75}.luna-logcat-theme-light .luna-logcat-color-cyan-9{color:#00474f}.luna-logcat-theme-light .luna-logcat-color-cyan-10{color:#002329}.luna-logcat-theme-light .luna-logcat-color-green-6{color:#52c41a}.luna-logcat-theme-light .luna-logcat-color-green-7{color:#389e0d}.luna-logcat-theme-light .luna-logcat-color-green-8{color:#237804}.luna-logcat-theme-light .luna-logcat-color-green-9{color:#135200}.luna-logcat-theme-light .luna-logcat-color-green-10{color:#092b00}.luna-logcat-theme-light .luna-logcat-color-magenta-6{color:#eb2f96}.luna-logcat-theme-light .luna-logcat-color-magenta-7{color:#c41d7f}.luna-logcat-theme-light .luna-logcat-color-magenta-8{color:#9e1068}.luna-logcat-theme-light .luna-logcat-color-magenta-9{color:#780650}.luna-logcat-theme-light .luna-logcat-color-magenta-10{color:#520339}.luna-logcat-theme-light .luna-logcat-color-pink-6{color:#eb2f96}.luna-logcat-theme-light .luna-logcat-color-pink-7{color:#c41d7f}.luna-logcat-theme-light .luna-logcat-color-pink-8{color:#9e1068}.luna-logcat-theme-light .luna-logcat-color-pink-9{color:#780650}.luna-logcat-theme-light .luna-logcat-color-pink-10{color:#520339}.luna-logcat-theme-light .luna-logcat-color-red-6{color:#f5222d}.luna-logcat-theme-light .luna-logcat-color-red-7{color:#cf1322}.luna-logcat-theme-light .luna-logcat-color-red-8{color:#a8071a}.luna-logcat-theme-light .luna-logcat-color-red-9{color:#820014}.luna-logcat-theme-light .luna-logcat-color-red-10{color:#5c0011}.luna-logcat-theme-light .luna-logcat-color-orange-6{color:#fa8c16}.luna-logcat-theme-light .luna-logcat-color-orange-7{color:#d46b08}.luna-logcat-theme-light .luna-logcat-color-orange-8{color:#ad4e00}.luna-logcat-theme-light .luna-logcat-color-orange-9{color:#873800}.luna-logcat-theme-light .luna-logcat-color-orange-10{color:#612500}.luna-logcat-theme-light .luna-logcat-color-yellow-6{color:#fadb14}.luna-logcat-theme-light .luna-logcat-color-yellow-7{color:#d4b106}.luna-logcat-theme-light .luna-logcat-color-yellow-8{color:#ad8b00}.luna-logcat-theme-light .luna-logcat-color-yellow-9{color:#876800}.luna-logcat-theme-light .luna-logcat-color-yellow-10{color:#614700}.luna-logcat-theme-light .luna-logcat-color-volcano-6{color:#fa541c}.luna-logcat-theme-light .luna-logcat-color-volcano-7{color:#d4380d}.luna-logcat-theme-light .luna-logcat-color-volcano-8{color:#ad2102}.luna-logcat-theme-light .luna-logcat-color-volcano-9{color:#871400}.luna-logcat-theme-light .luna-logcat-color-volcano-10{color:#610b00}.luna-logcat-theme-light .luna-logcat-color-geekblue-6{color:#2f54eb}.luna-logcat-theme-light .luna-logcat-color-geekblue-7{color:#1d39c4}.luna-logcat-theme-light .luna-logcat-color-geekblue-8{color:#10239e}.luna-logcat-theme-light .luna-logcat-color-geekblue-9{color:#061178}.luna-logcat-theme-light .luna-logcat-color-geekblue-10{color:#030852}.luna-logcat-theme-light .luna-logcat-color-gold-6{color:#faad14}.luna-logcat-theme-light .luna-logcat-color-gold-7{color:#d48806}.luna-logcat-theme-light .luna-logcat-color-gold-8{color:#ad6800}.luna-logcat-theme-light .luna-logcat-color-gold-9{color:#874d00}.luna-logcat-theme-light .luna-logcat-color-gold-10{color:#613400}.luna-logcat-theme-light .luna-logcat-color-lime-6{color:#a0d911}.luna-logcat-theme-light .luna-logcat-color-lime-7{color:#7cb305}.luna-logcat-theme-light .luna-logcat-color-lime-8{color:#5b8c00}.luna-logcat-theme-light .luna-logcat-color-lime-9{color:#3f6600}.luna-logcat-theme-light .luna-logcat-color-lime-10{color:#254000}.luna-logcat-theme-dark{border-color:#424242;border-color:var(--luna-color-border,#424242)}.luna-logcat-theme-dark .luna-logcat-W .luna-logcat-priority{background-color:#d89614;background-color:var(--luna-color-warning-text,#d89614)}.luna-logcat-theme-dark .luna-logcat-W .luna-logcat-message{color:#d89614;color:var(--luna-color-warning-text,#d89614)}.luna-logcat-theme-dark .luna-logcat-E .luna-logcat-priority{background-color:#dc4446;background-color:var(--luna-color-error-text,#dc4446)}.luna-logcat-theme-dark .luna-logcat-E .luna-logcat-message{color:#dc4446;color:var(--luna-color-error-text,#dc4446)}.luna-logcat-theme-dark .luna-logcat-D .luna-logcat-priority{background-color:#49aa19;background-color:var(--luna-color-success-text,#49aa19)}.luna-logcat-theme-dark .luna-logcat-I .luna-logcat-priority{background-color:#1668dc;background-color:var(--luna-color-info-text,#1668dc)}.luna-logcat-theme-dark .luna-logcat-color-blue-6{color:#1668dc}.luna-logcat-theme-dark .luna-logcat-color-blue-7{color:#3c89e8}.luna-logcat-theme-dark .luna-logcat-color-blue-8{color:#65a9f3}.luna-logcat-theme-dark .luna-logcat-color-blue-9{color:#8dc5f8}.luna-logcat-theme-dark .luna-logcat-color-blue-10{color:#b7dcfa}.luna-logcat-theme-dark .luna-logcat-color-purple-6{color:#642ab5}.luna-logcat-theme-dark .luna-logcat-color-purple-7{color:#854eca}.luna-logcat-theme-dark .luna-logcat-color-purple-8{color:#ab7ae0}.luna-logcat-theme-dark .luna-logcat-color-purple-9{color:#cda8f0}.luna-logcat-theme-dark .luna-logcat-color-purple-10{color:#ebd7fa}.luna-logcat-theme-dark .luna-logcat-color-cyan-6{color:#13a8a8}.luna-logcat-theme-dark .luna-logcat-color-cyan-7{color:#33bcb7}.luna-logcat-theme-dark .luna-logcat-color-cyan-8{color:#58d1c9}.luna-logcat-theme-dark .luna-logcat-color-cyan-9{color:#84e2d8}.luna-logcat-theme-dark .luna-logcat-color-cyan-10{color:#b2f1e8}.luna-logcat-theme-dark .luna-logcat-color-green-6{color:#49aa19}.luna-logcat-theme-dark .luna-logcat-color-green-7{color:#6abe39}.luna-logcat-theme-dark .luna-logcat-color-green-8{color:#8fd460}.luna-logcat-theme-dark .luna-logcat-color-green-9{color:#b2e58b}.luna-logcat-theme-dark .luna-logcat-color-green-10{color:#d5f2bb}.luna-logcat-theme-dark .luna-logcat-color-magenta-6{color:#cb2b83}.luna-logcat-theme-dark .luna-logcat-color-magenta-7{color:#e0529c}.luna-logcat-theme-dark .luna-logcat-color-magenta-8{color:#f37fb7}.luna-logcat-theme-dark .luna-logcat-color-magenta-9{color:#f8a8cc}.luna-logcat-theme-dark .luna-logcat-color-magenta-10{color:#fad2e3}.luna-logcat-theme-dark .luna-logcat-color-pink-6{color:#cb2b83}.luna-logcat-theme-dark .luna-logcat-color-pink-7{color:#e0529c}.luna-logcat-theme-dark .luna-logcat-color-pink-8{color:#f37fb7}.luna-logcat-theme-dark .luna-logcat-color-pink-9{color:#f8a8cc}.luna-logcat-theme-dark .luna-logcat-color-pink-10{color:#fad2e3}.luna-logcat-theme-dark .luna-logcat-color-red-6{color:#d32029}.luna-logcat-theme-dark .luna-logcat-color-red-7{color:#e84749}.luna-logcat-theme-dark .luna-logcat-color-red-8{color:#f37370}.luna-logcat-theme-dark .luna-logcat-color-red-9{color:#f89f9a}.luna-logcat-theme-dark .luna-logcat-color-red-10{color:#fac8c3}.luna-logcat-theme-dark .luna-logcat-color-orange-6{color:#d87a16}.luna-logcat-theme-dark .luna-logcat-color-orange-7{color:#e89a3c}.luna-logcat-theme-dark .luna-logcat-color-orange-8{color:#f3b765}.luna-logcat-theme-dark .luna-logcat-color-orange-9{color:#f8cf8d}.luna-logcat-theme-dark .luna-logcat-color-orange-10{color:#fae3b7}.luna-logcat-theme-dark .luna-logcat-color-yellow-6{color:#d8bd14}.luna-logcat-theme-dark .luna-logcat-color-yellow-7{color:#e8d639}.luna-logcat-theme-dark .luna-logcat-color-yellow-8{color:#f3ea62}.luna-logcat-theme-dark .luna-logcat-color-yellow-9{color:#f8f48b}.luna-logcat-theme-dark .luna-logcat-color-yellow-10{color:#fafab5}.luna-logcat-theme-dark .luna-logcat-color-volcano-6{color:#d84a1b}.luna-logcat-theme-dark .luna-logcat-color-volcano-7{color:#e87040}.luna-logcat-theme-dark .luna-logcat-color-volcano-8{color:#f3956a}.luna-logcat-theme-dark .luna-logcat-color-volcano-9{color:#f8b692}.luna-logcat-theme-dark .luna-logcat-color-volcano-10{color:#fad4bc}.luna-logcat-theme-dark .luna-logcat-color-geekblue-6{color:#2b4acb}.luna-logcat-theme-dark .luna-logcat-color-geekblue-7{color:#5273e0}.luna-logcat-theme-dark .luna-logcat-color-geekblue-8{color:#7f9ef3}.luna-logcat-theme-dark .luna-logcat-color-geekblue-9{color:#a8c1f8}.luna-logcat-theme-dark .luna-logcat-color-geekblue-10{color:#d2e0fa}.luna-logcat-theme-dark .luna-logcat-color-gold-6{color:#d89614}.luna-logcat-theme-dark .luna-logcat-color-gold-7{color:#e8b339}.luna-logcat-theme-dark .luna-logcat-color-gold-8{color:#f3cc62}.luna-logcat-theme-dark .luna-logcat-color-gold-9{color:#f8df8b}.luna-logcat-theme-dark .luna-logcat-color-gold-10{color:#faedb5}.luna-logcat-theme-dark .luna-logcat-color-lime-6{color:#8bbb11}.luna-logcat-theme-dark .luna-logcat-color-lime-7{color:#a9d134}.luna-logcat-theme-dark .luna-logcat-color-lime-8{color:#c9e75d}.luna-logcat-theme-dark .luna-logcat-color-lime-9{color:#e4f88b}.luna-logcat-theme-dark .luna-logcat-color-lime-10{color:#f0fab5}
++.luna-logcat{unicode-bidi:embed;position:relative;line-height:1.5em;border:1px solid;white-space:pre;overflow:hidden;color:rgba(0,0,0,.88);color:var(--luna-color-text,rgba(0,0,0,.88));background-color:#fff;background-color:var(--luna-color-bg-container,#fff);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol","Noto Color Emoji";font-family:var(--luna-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji");box-sizing:border-box;-webkit-user-select:none;-moz-user-select:none;user-select:none;font-size:14px}.luna-logcat .luna-logcat-hidden,.luna-logcat.luna-logcat-hidden{display:none}.luna-logcat .luna-logcat-invisible,.luna-logcat.luna-logcat-invisible{visibility:hidden}.luna-logcat *{box-sizing:border-box}.luna-logcat.luna-logcat-theme-dark{color-scheme:dark;color:hsla(0,0%,100%,.85);color:var(--luna-color-text-dark,rgba(255,255,255,.85));background-color:#141414;background-color:var(--luna-color-bg-container-dark,#141414)}.luna-logcat{-webkit-user-select:text;-moz-user-select:text;user-select:text;font-family:ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace}.luna-logcat.luna-logcat-wrap-long-lines{white-space:pre-wrap;word-break:break-all}.luna-logcat.luna-logcat-wrap-long-lines .luna-logcat-message{display:inline}.luna-logcat-entry{padding-left:4px;font-size:var(--luna-logcat-font-size,12px);line-height:1.5}.luna-logcat-date,.luna-logcat-package,.luna-logcat-pid,.luna-logcat-priority,.luna-logcat-tag{display:inline-block;white-space:nowrap;vertical-align:top}.luna-logcat-message{display:inline-block}.luna-logcat-wrap-long-lines .luna-logcat-message{display:inline}.luna-logcat-date{margin-right:4px}.luna-logcat-pid{width:8.3334em;text-align:center}.luna-logcat-package,.luna-logcat-tag{overflow:hidden;text-overflow:ellipsis;width:12.5em}.luna-logcat-priority{padding:0 8px}.luna-logcat-theme-light{border-color:#d9d9d9;border-color:var(--luna-color-border,#d9d9d9)}.luna-logcat-theme-light .luna-logcat-W .luna-logcat-priority{background-color:#faad14;background-color:var(--luna-color-warning-text,#faad14)}.luna-logcat-theme-light .luna-logcat-W .luna-logcat-message{color:#faad14;color:var(--luna-color-warning-text,#faad14)}.luna-logcat-theme-light .luna-logcat-E .luna-logcat-priority{background-color:#ff4d4f;background-color:var(--luna-color-error-text,#ff4d4f)}.luna-logcat-theme-light .luna-logcat-E .luna-logcat-message{color:#ff4d4f;color:var(--luna-color-error-text,#ff4d4f)}.luna-logcat-theme-light .luna-logcat-D .luna-logcat-priority{background-color:#52c41a;background-color:var(--luna-color-success-text,#52c41a)}.luna-logcat-theme-light .luna-logcat-I .luna-logcat-priority{background-color:#1677ff;background-color:var(--luna-color-info-text,#1677ff)}.luna-logcat-theme-light .luna-logcat-color-blue-6{color:#1677ff}.luna-logcat-theme-light .luna-logcat-color-blue-7{color:#0958d9}.luna-logcat-theme-light .luna-logcat-color-blue-8{color:#003eb3}.luna-logcat-theme-light .luna-logcat-color-blue-9{color:#002c8c}.luna-logcat-theme-light .luna-logcat-color-blue-10{color:#001d66}.luna-logcat-theme-light .luna-logcat-color-purple-6{color:#722ed1}.luna-logcat-theme-light .luna-logcat-color-purple-7{color:#531dab}.luna-logcat-theme-light .luna-logcat-color-purple-8{color:#391085}.luna-logcat-theme-light .luna-logcat-color-purple-9{color:#22075e}.luna-logcat-theme-light .luna-logcat-color-purple-10{color:#120338}.luna-logcat-theme-light .luna-logcat-color-cyan-6{color:#13c2c2}.luna-logcat-theme-light .luna-logcat-color-cyan-7{color:#08979c}.luna-logcat-theme-light .luna-logcat-color-cyan-8{color:#006d75}.luna-logcat-theme-light .luna-logcat-color-cyan-9{color:#00474f}.luna-logcat-theme-light .luna-logcat-color-cyan-10{color:#002329}.luna-logcat-theme-light .luna-logcat-color-green-6{color:#52c41a}.luna-logcat-theme-light .luna-logcat-color-green-7{color:#389e0d}.luna-logcat-theme-light .luna-logcat-color-green-8{color:#237804}.luna-logcat-theme-light .luna-logcat-color-green-9{color:#135200}.luna-logcat-theme-light .luna-logcat-color-green-10{color:#092b00}.luna-logcat-theme-light .luna-logcat-color-magenta-6{color:#eb2f96}.luna-logcat-theme-light .luna-logcat-color-magenta-7{color:#c41d7f}.luna-logcat-theme-light .luna-logcat-color-magenta-8{color:#9e1068}.luna-logcat-theme-light .luna-logcat-color-magenta-9{color:#780650}.luna-logcat-theme-light .luna-logcat-color-magenta-10{color:#520339}.luna-logcat-theme-light .luna-logcat-color-pink-6{color:#eb2f96}.luna-logcat-theme-light .luna-logcat-color-pink-7{color:#c41d7f}.luna-logcat-theme-light .luna-logcat-color-pink-8{color:#9e1068}.luna-logcat-theme-light .luna-logcat-color-pink-9{color:#780650}.luna-logcat-theme-light .luna-logcat-color-pink-10{color:#520339}.luna-logcat-theme-light .luna-logcat-color-red-6{color:#f5222d}.luna-logcat-theme-light .luna-logcat-color-red-7{color:#cf1322}.luna-logcat-theme-light .luna-logcat-color-red-8{color:#a8071a}.luna-logcat-theme-light .luna-logcat-color-red-9{color:#820014}.luna-logcat-theme-light .luna-logcat-color-red-10{color:#5c0011}.luna-logcat-theme-light .luna-logcat-color-orange-6{color:#fa8c16}.luna-logcat-theme-light .luna-logcat-color-orange-7{color:#d46b08}.luna-logcat-theme-light .luna-logcat-color-orange-8{color:#ad4e00}.luna-logcat-theme-light .luna-logcat-color-orange-9{color:#873800}.luna-logcat-theme-light .luna-logcat-color-orange-10{color:#612500}.luna-logcat-theme-light .luna-logcat-color-yellow-6{color:#fadb14}.luna-logcat-theme-light .luna-logcat-color-yellow-7{color:#d4b106}.luna-logcat-theme-light .luna-logcat-color-yellow-8{color:#ad8b00}.luna-logcat-theme-light .luna-logcat-color-yellow-9{color:#876800}.luna-logcat-theme-light .luna-logcat-color-yellow-10{color:#614700}.luna-logcat-theme-light .luna-logcat-color-volcano-6{color:#fa541c}.luna-logcat-theme-light .luna-logcat-color-volcano-7{color:#d4380d}.luna-logcat-theme-light .luna-logcat-color-volcano-8{color:#ad2102}.luna-logcat-theme-light .luna-logcat-color-volcano-9{color:#871400}.luna-logcat-theme-light .luna-logcat-color-volcano-10{color:#610b00}.luna-logcat-theme-light .luna-logcat-color-geekblue-6{color:#2f54eb}.luna-logcat-theme-light .luna-logcat-color-geekblue-7{color:#1d39c4}.luna-logcat-theme-light .luna-logcat-color-geekblue-8{color:#10239e}.luna-logcat-theme-light .luna-logcat-color-geekblue-9{color:#061178}.luna-logcat-theme-light .luna-logcat-color-geekblue-10{color:#030852}.luna-logcat-theme-light .luna-logcat-color-gold-6{color:#faad14}.luna-logcat-theme-light .luna-logcat-color-gold-7{color:#d48806}.luna-logcat-theme-light .luna-logcat-color-gold-8{color:#ad6800}.luna-logcat-theme-light .luna-logcat-color-gold-9{color:#874d00}.luna-logcat-theme-light .luna-logcat-color-gold-10{color:#613400}.luna-logcat-theme-light .luna-logcat-color-lime-6{color:#a0d911}.luna-logcat-theme-light .luna-logcat-color-lime-7{color:#7cb305}.luna-logcat-theme-light .luna-logcat-color-lime-8{color:#5b8c00}.luna-logcat-theme-light .luna-logcat-color-lime-9{color:#3f6600}.luna-logcat-theme-light .luna-logcat-color-lime-10{color:#254000}.luna-logcat-theme-dark{border-color:#424242;border-color:var(--luna-color-border,#424242)}.luna-logcat-theme-dark .luna-logcat-W .luna-logcat-priority{background-color:#d89614;background-color:var(--luna-color-warning-text,#d89614)}.luna-logcat-theme-dark .luna-logcat-W .luna-logcat-message{color:#d89614;color:var(--luna-color-warning-text,#d89614)}.luna-logcat-theme-dark .luna-logcat-E .luna-logcat-priority{background-color:#dc4446;background-color:var(--luna-color-error-text,#dc4446)}.luna-logcat-theme-dark .luna-logcat-E .luna-logcat-message{color:#dc4446;color:var(--luna-color-error-text,#dc4446)}.luna-logcat-theme-dark .luna-logcat-D .luna-logcat-priority{background-color:#49aa19;background-color:var(--luna-color-success-text,#49aa19)}.luna-logcat-theme-dark .luna-logcat-I .luna-logcat-priority{background-color:#1668dc;background-color:var(--luna-color-info-text,#1668dc)}.luna-logcat-theme-dark .luna-logcat-color-blue-6{color:#1668dc}.luna-logcat-theme-dark .luna-logcat-color-blue-7{color:#3c89e8}.luna-logcat-theme-dark .luna-logcat-color-blue-8{color:#65a9f3}.luna-logcat-theme-dark .luna-logcat-color-blue-9{color:#8dc5f8}.luna-logcat-theme-dark .luna-logcat-color-blue-10{color:#b7dcfa}.luna-logcat-theme-dark .luna-logcat-color-purple-6{color:#642ab5}.luna-logcat-theme-dark .luna-logcat-color-purple-7{color:#854eca}.luna-logcat-theme-dark .luna-logcat-color-purple-8{color:#ab7ae0}.luna-logcat-theme-dark .luna-logcat-color-purple-9{color:#cda8f0}.luna-logcat-theme-dark .luna-logcat-color-purple-10{color:#ebd7fa}.luna-logcat-theme-dark .luna-logcat-color-cyan-6{color:#13a8a8}.luna-logcat-theme-dark .luna-logcat-color-cyan-7{color:#33bcb7}.luna-logcat-theme-dark .luna-logcat-color-cyan-8{color:#58d1c9}.luna-logcat-theme-dark .luna-logcat-color-cyan-9{color:#84e2d8}.luna-logcat-theme-dark .luna-logcat-color-cyan-10{color:#b2f1e8}.luna-logcat-theme-dark .luna-logcat-color-green-6{color:#49aa19}.luna-logcat-theme-dark .luna-logcat-color-green-7{color:#6abe39}.luna-logcat-theme-dark .luna-logcat-color-green-8{color:#8fd460}.luna-logcat-theme-dark .luna-logcat-color-green-9{color:#b2e58b}.luna-logcat-theme-dark .luna-logcat-color-green-10{color:#d5f2bb}.luna-logcat-theme-dark .luna-logcat-color-magenta-6{color:#cb2b83}.luna-logcat-theme-dark .luna-logcat-color-magenta-7{color:#e0529c}.luna-logcat-theme-dark .luna-logcat-color-magenta-8{color:#f37fb7}.luna-logcat-theme-dark .luna-logcat-color-magenta-9{color:#f8a8cc}.luna-logcat-theme-dark .luna-logcat-color-magenta-10{color:#fad2e3}.luna-logcat-theme-dark .luna-logcat-color-pink-6{color:#cb2b83}.luna-logcat-theme-dark .luna-logcat-color-pink-7{color:#e0529c}.luna-logcat-theme-dark .luna-logcat-color-pink-8{color:#f37fb7}.luna-logcat-theme-dark .luna-logcat-color-pink-9{color:#f8a8cc}.luna-logcat-theme-dark .luna-logcat-color-pink-10{color:#fad2e3}.luna-logcat-theme-dark .luna-logcat-color-red-6{color:#d32029}.luna-logcat-theme-dark .luna-logcat-color-red-7{color:#e84749}.luna-logcat-theme-dark .luna-logcat-color-red-8{color:#f37370}.luna-logcat-theme-dark .luna-logcat-color-red-9{color:#f89f9a}.luna-logcat-theme-dark .luna-logcat-color-red-10{color:#fac8c3}.luna-logcat-theme-dark .luna-logcat-color-orange-6{color:#d87a16}.luna-logcat-theme-dark .luna-logcat-color-orange-7{color:#e89a3c}.luna-logcat-theme-dark .luna-logcat-color-orange-8{color:#f3b765}.luna-logcat-theme-dark .luna-logcat-color-orange-9{color:#f8cf8d}.luna-logcat-theme-dark .luna-logcat-color-orange-10{color:#fae3b7}.luna-logcat-theme-dark .luna-logcat-color-yellow-6{color:#d8bd14}.luna-logcat-theme-dark .luna-logcat-color-yellow-7{color:#e8d639}.luna-logcat-theme-dark .luna-logcat-color-yellow-8{color:#f3ea62}.luna-logcat-theme-dark .luna-logcat-color-yellow-9{color:#f8f48b}.luna-logcat-theme-dark .luna-logcat-color-yellow-10{color:#fafab5}.luna-logcat-theme-dark .luna-logcat-color-volcano-6{color:#d84a1b}.luna-logcat-theme-dark .luna-logcat-color-volcano-7{color:#e87040}.luna-logcat-theme-dark .luna-logcat-color-volcano-8{color:#f3956a}.luna-logcat-theme-dark .luna-logcat-color-volcano-9{color:#f8b692}.luna-logcat-theme-dark .luna-logcat-color-volcano-10{color:#fad4bc}.luna-logcat-theme-dark .luna-logcat-color-geekblue-6{color:#2b4acb}.luna-logcat-theme-dark .luna-logcat-color-geekblue-7{color:#5273e0}.luna-logcat-theme-dark .luna-logcat-color-geekblue-8{color:#7f9ef3}.luna-logcat-theme-dark .luna-logcat-color-geekblue-9{color:#a8c1f8}.luna-logcat-theme-dark .luna-logcat-color-geekblue-10{color:#d2e0fa}.luna-logcat-theme-dark .luna-logcat-color-gold-6{color:#d89614}.luna-logcat-theme-dark .luna-logcat-color-gold-7{color:#e8b339}.luna-logcat-theme-dark .luna-logcat-color-gold-8{color:#f3cc62}.luna-logcat-theme-dark .luna-logcat-color-gold-9{color:#f8df8b}.luna-logcat-theme-dark .luna-logcat-color-gold-10{color:#faedb5}.luna-logcat-theme-dark .luna-logcat-color-lime-6{color:#8bbb11}.luna-logcat-theme-dark .luna-logcat-color-lime-7{color:#a9d134}.luna-logcat-theme-dark .luna-logcat-color-lime-8{color:#c9e75d}.luna-logcat-theme-dark .luna-logcat-color-lime-9{color:#e4f88b}.luna-logcat-theme-dark .luna-logcat-color-lime-10{color:#f0fab5}
+ 
+ /*# sourceMappingURL=luna-logcat.css.map*/
+\ No newline at end of file

@@ -23,8 +23,9 @@ import contextMenu from 'share/renderer/lib/contextMenu'
 
 export default observer(function Logcat() {
   const [view, setView] = useState<'compact' | 'standard'>('standard')
-  const [softWrap, setSoftWrap] = useState(false)
+  const [softWrap, setSoftWrap] = useState(true)
   const [paused, setPaused] = useState(false)
+  const [fontSize, setFontSize] = useState(13)
   const [filter, setFilter] = useState<{
     priority?: number
     package?: string
@@ -34,8 +35,40 @@ export default observer(function Logcat() {
   const logcatRef = useRef<Logcat>(null)
   const entriesRef = useRef<any[]>([])
   const logcatIdRef = useRef('')
+  const panelRef = useRef<HTMLDivElement>(null)
+  const fontSizeRef = useRef(13)
+  fontSizeRef.current = fontSize
 
   const { device } = store
+
+  useEffect(() => {
+    main.getLogcatStore('fontSize').then((size) => {
+      if (typeof size === 'number') {
+        setFontSize(size)
+      }
+    })
+  }, [])
+
+  useEffect(() => {
+    const panel = panelRef.current
+    if (!panel) {
+      return
+    }
+    function onWheel(e: WheelEvent) {
+      if (!e.ctrlKey) {
+        return
+      }
+      e.preventDefault()
+      const delta = e.deltaY < 0 ? 1 : -1
+      const next = Math.min(32, Math.max(8, fontSizeRef.current + delta))
+      if (next !== fontSizeRef.current) {
+        setFontSize(next)
+        main.setLogcatStore('fontSize', next)
+      }
+    }
+    panel.addEventListener('wheel', onWheel, { passive: false })
+    return () => panel.removeEventListener('wheel', onWheel)
+  }, [])
 
   useEffect(() => {
     function onLogcatEntry(id, entry) {
@@ -125,7 +158,7 @@ export default observer(function Logcat() {
   }
 
   return (
-    <div className="panel-with-toolbar">
+    <div className="panel-with-toolbar" ref={panelRef}>
       <LunaToolbar
         className="panel-toolbar"
         onChange={(key, val) => {
@@ -259,6 +292,7 @@ export default observer(function Logcat() {
         maxNum={10000}
         filter={filter}
         wrapLongLines={softWrap}
+        fontSize={fontSize}
         onContextMenu={onContextMenu}
         view={view}
         onCreate={(logcat) => (logcatRef.current = logcat)}
