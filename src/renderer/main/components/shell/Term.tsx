@@ -223,6 +223,15 @@ export default observer(function Term(props: ITermProps) {
     const bounds = findBlockBounds(buffer, bufLine)
     if (bounds) {
       term.selectLines(bounds.start, bounds.end)
+      // If the block's start (prompt line) is above the current viewport
+      // (e.g. the user double-clicked a long block's middle), scroll so the
+      // prompt becomes visible. selectLines/refresh and focus(preventScroll)
+      // never move the viewport, so without this the block's "first line" is
+      // off-screen above. Skip the scroll when the prompt is already in view
+      // so short blocks don't disturb the current scroll position.
+      if (bounds.start < buffer.viewportY) {
+        term.scrollToLine(bounds.start)
+      }
       // Restore focus to xterm: the double-click landed on the gutter (a
       // sibling div), which steals focus from the terminal. Without this,
       // Ctrl+Shift+C copy fails because the terminal's selection/textarea no
