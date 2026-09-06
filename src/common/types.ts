@@ -72,23 +72,23 @@ export type IpcGetFps = (deviceId: string, pkg: string) => Promise<number>
 export type IpcGetDevices = () => Promise<IDevice[]>
 export type IpcSetScreencastAlwaysOnTop = (alwaysOnTop: boolean) => void
 export type IpcListForwards = (
-  deviceId: string
+  deviceId: string,
 ) => Promise<Array<{ local: string; remote: string }>>
 export type IpcListReverses = IpcListForwards
 export type IpcForward = (
   deviceId: string,
   local: string,
-  remote: string
+  remote: string,
 ) => void
 export type IpcReverse = (
   deviceId: string,
   remote: string,
-  local: string
+  local: string,
 ) => void
 export type IpcDumpWindowHierarchy = (deviceId: string) => Promise<string>
 export type IpcGetPackageInfos = (
   deviceId: string,
-  packageNames: string[]
+  packageNames: string[],
 ) => Promise<IPackageInfo[]>
 export type IpcGetAvds = (forceRefresh?: boolean) => Promise<IAvd[]>
 export type IpcStartAvd = (avdId: string) => Promise<void>
@@ -97,14 +97,14 @@ export type IpcWipeAvdData = (avdId: string) => Promise<void>
 export type IpcPairDevice = (
   host: string,
   port: number,
-  password: string
+  password: string,
 ) => Promise<void>
 export type IpcCreateShell = (deviceId: string) => Promise<string>
 export type IpcWriteShell = (sessionId: string, data: string) => void
 export type IpcResizeShell = (
   sessionId: string,
   cols: number,
-  rows: number
+  rows: number,
 ) => void
 export type IpcKillShell = (sessionId: string) => void
 export type IpcScreencap = (deviceId: string) => Promise<string>
@@ -115,7 +115,7 @@ export type IpcResumeLogcat = IpcCloseLogcat
 export type IpcInputKey = (deviceId: string, keyCode: number) => Promise<void>
 export type IpcReverseTcp = (
   deviceId: string,
-  remote: string
+  remote: string,
 ) => Promise<number>
 export type IpcStartScrcpy = (deviceId: string, args: string[]) => Promise<void>
 export type IpcConnectDevice = (host: string, port?: number) => Promise<void>
@@ -123,7 +123,7 @@ export type IpcDisconnectDevice = IpcConnectDevice
 export type IpcMoveFile = (
   deviceId: string,
   src: string,
-  dest: string
+  dest: string,
 ) => Promise<void>
 export type IpcStatFile = (deviceId: string, path: string) => Promise<IFileStat>
 export type IpcReadDir = (deviceId: string, path: string) => Promise<IFile[]>
@@ -134,32 +134,32 @@ export type IpcOpenFile = IpcCreateDir
 export type IpcPushFile = (
   deviceId: string,
   src: string,
-  dest: string
+  dest: string,
 ) => Promise<void>
 export type IpcPullFile = (
   deviceId: string,
   src: string,
-  dest: string
+  dest: string,
 ) => Promise<void>
 export type IpcEnablePackage = (deviceId: string, pkg: string) => Promise<void>
 export type IpcDisablePackage = IpcEnablePackage
 export type IpcGetPackages = (
   deviceId: string,
-  system?: boolean
+  system?: boolean,
 ) => Promise<string[]>
 export type IpcExportApks = (
   deviceId: string,
   pkg: string,
   dest: string,
-  folderName: string
+  folderName: string,
 ) => Promise<void>
 export type IpcInstallPackage = (
   deviceId: string,
-  apkPath: string
+  apkPath: string,
 ) => Promise<void>
 export type IpcUninstallPackage = (
   deviceId: string,
-  pkg: string
+  pkg: string,
 ) => Promise<void>
 export type IpcStartPackage = (deviceId: string, pkg: string) => Promise<void>
 export type IpcStopPackage = IpcStartPackage
@@ -170,7 +170,7 @@ export type IpcGetTopPackage = (deviceId: string) => Promise<{
 }>
 export type IpcGetWebviews = (
   deviceId: string,
-  pid: number
+  pid: number,
 ) => Promise<IWebview[]>
 export type IpcGetProcesses = (deviceId: string) => Promise<IProcess[]>
 export interface IPerfettoTraceConfig {
@@ -179,20 +179,33 @@ export interface IPerfettoTraceConfig {
   time: string
   buffer: string
   events: string[]
+  additionalEvents: string[]
   app: string
   traceAllApps: boolean
   noOpen: boolean
 }
 
 export type IpcStartPerfettoTrace = (
-  config: IPerfettoTraceConfig
+  config: IPerfettoTraceConfig,
 ) => Promise<string>
 export type IpcStopPerfettoTrace = (sessionId: string) => Promise<void>
+export type IpcExportPerfettoConfig = (
+  config: IPerfettoTraceConfig,
+  savePath: string,
+) => Promise<void>
+export interface IBoottraceResult {
+  pushed: boolean
+  verified: boolean
+}
+export type IpcExportBoottraceConfig = (
+  config: IPerfettoTraceConfig,
+  savePath: string,
+) => Promise<IBoottraceResult>
 
 export type IpcGetFileUrl = (
   deviceId: string,
   path: string,
-  port?: number
+  port?: number,
 ) => Promise<string>
 export type IpcStartGnirehtet = (deviceId: string) => Promise<void>
 export type IpcStopGnirehtet = (deviceId: string) => Promise<void>

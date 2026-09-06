@@ -51,6 +51,8 @@ import {
   IpcWriteShell,
   IpcStartPerfettoTrace,
   IpcStopPerfettoTrace,
+  IpcExportPerfettoConfig,
+  IpcExportBoottraceConfig,
   IpcStartGnirehtet,
   IpcStopGnirehtet,
 } from 'common/types'
@@ -70,10 +72,11 @@ export default Object.assign(mainObj, {
   setShellStore: invoke<IpcSetStore>('setShellStore'),
   getLogcatStore: invoke<IpcGetStore>('getLogcatStore'),
   setLogcatStore: invoke<IpcSetStore>('setLogcatStore'),
-  writeFile: invoke<(filePath: string, content: string) => Promise<void>>('writeFile'),
+  writeFile:
+    invoke<(filePath: string, content: string) => Promise<void>>('writeFile'),
   readFile: invoke<(filePath: string) => Promise<string>>('readFile'),
   setScreencastAlwaysOnTop: invoke<IpcSetScreencastAlwaysOnTop>(
-    'setScreencastAlwaysOnTop'
+    'setScreencastAlwaysOnTop',
   ),
   getSettingsStore: invoke<IpcGetStore>('getSettingsStore'),
   setSettingsStore: invoke<IpcSetStore>('setSettingsStore'),
@@ -139,6 +142,10 @@ export default Object.assign(mainObj, {
   getFileUrl: invoke<IpcGetFileUrl>('getFileUrl'),
   startPerfettoTrace: invoke<IpcStartPerfettoTrace>('startPerfettoTrace'),
   stopPerfettoTrace: invoke<IpcStopPerfettoTrace>('stopPerfettoTrace'),
+  exportPerfettoConfig: invoke<IpcExportPerfettoConfig>('exportPerfettoConfig'),
+  exportBoottraceConfig: invoke<IpcExportBoottraceConfig>(
+    'exportBoottraceConfig',
+  ),
   startGnirehtet: invoke<IpcStartGnirehtet>('startGnirehtet'),
   stopGnirehtet: invoke<IpcStopGnirehtet>('stopGnirehtet'),
 })
