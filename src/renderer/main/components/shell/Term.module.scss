@@ -4,10 +4,16 @@
 // The gutter sits inside the dark terminal area; the xterm container is
 // offset right by the gutter width so FitAddon computes fewer columns and
 // text never enters the gutter band.
+// The terminal always renders on a black canvas (xterm's viewport is #000).
+// Give the whole .term area a black background so that when FitAddon floors
+// rows (N * cellHeight) and leaves a sub-row gap at the bottom/right, the gap
+// blends with the canvas instead of showing the panel's light background —
+// which previously appeared as an empty strip when the font was zoomed up.
 .term {
   position: relative;
   width: 100%;
   height: 100%;
+  background: #000;
   // Uniform WindTerm-style padding on all sides.
   padding: 8px;
 }
@@ -30,9 +36,18 @@
 
 // xterm container: shifted right past the gutter so its width (measured by
 // FitAddon) excludes the gutter, leaving the gutter as empty canvas space.
+// overflow: hidden isolates the xterm canvas from the flex layout: fit() resizes
+// the inner xterm element, and without clipping that resize could add/remove a
+// scrollbar or overflow that nudges this container's measured width, which the
+// ResizeObserver sees → fit() again → a jitter feedback loop. Clipping breaks
+// the loop: the container width is dictated solely by flex, xterm fits inside.
+// Black background matches the terminal canvas so the bottom/right sub-row gap
+// from FitAddon's floor() never reads as a light strip.
 .termCanvas {
   position: relative;
   width: calc(100% - 16px);
   height: 100%;
   margin-left: 16px;
+  background: #000;
+  overflow: hidden;
 }

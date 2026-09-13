@@ -7,7 +7,7 @@ import ToolbarIcon from 'share/renderer/components/ToolbarIcon'
 import store from '../../store'
 import Style from './Shell.module.scss'
 import className from 'licia/className'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import uuid from 'licia/uuid'
 import map from 'licia/map'
 import filter from 'licia/filter'
@@ -15,6 +15,7 @@ import find from 'licia/find'
 import idxOf from 'licia/idxOf'
 import { Terminal } from '@xterm/xterm'
 import CommandDrawer from './CommandDrawer'
+import CommandEditModal from './CommandEditModal'
 import { ICommandCategory, IShellCommand } from 'common/types'
 
 interface IShell {
@@ -24,9 +25,15 @@ interface IShell {
   terminal?: Terminal
 }
 
+const DEFAULT_DRAWER_WIDTH = 380
+const MIN_DRAWER_WIDTH = 280
+const MAX_DRAWER_RATIO = 0.6
+
 export default observer(function Shell() {
   const [shells, setShells] = useState<Array<IShell>>([])
-  const [drawerVisible, setDrawerVisible] = useState(false)
+  // Sidebar is visible by default; width/visibility persist across sessions.
+  const [drawerVisible, setDrawerVisible] = useState(true)
+  const [drawerWidth, setDrawerWidth] = useState(DEFAULT_DRAWER_WIDTH)
   const [selectedShell, setSelectedShell] = useState<IShell>({
     id: '',
     name: '',
@@ -34,12 +41,41 @@ export default observer(function Shell() {
   })
   const [categories, setCategories] = useState<ICommandCategory[]>([])
   const [commands, setCommands] = useState<IShellCommand[]>([])
+  // Edit modal is owned by the shell page (not the sidebar) so hiding the
+  // sidebar mid-edit doesn't unmount the modal and lose the in-progress input.
+  const [editModalVisible, setEditModalVisible] = useState(false)
+  const [editingCommand, setEditingCommand] = useState<IShellCommand | null>(
+    null
+  )
   const numRef = useRef(1)
   const { device } = store
+  // Track window width so the rendered sidebar width re-clamps on resize.
+  const [windowWidth, setWindowWidth] = useState(
+    typeof window !== 'undefined' ? window.innerWidth : DEFAULT_DRAWER_WIDTH
+  )
 
   useEffect(() => add(), [])
 
-  // Load commands and categories from store
+  useEffect(() => {
+    let raf = 0
+    function onResize() {
+      // Coalesce resize-driven windowWidth updates to one per frame. Without
+      // this, the resize event fires many times during a drag and each
+      // setWindowWidth re-renders + reflows the sidebar, racing the terminal's
+      // ResizeObserver fit() and causing the sidebar width to visibly jitter.
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => {
+        setWindowWidth(window.innerWidth)
+      })
+    }
+    window.addEventListener('resize', onResize)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', onResize)
+    }
+  }, [])
+
+  // Load commands, categories, and persisted sidebar state from the store.
   useEffect(() => {
     async function loadData() {
       const storedCategories = await main.getShellStore('categories')
@@ -50,9 +86,26 @@ export default observer(function Shell() {
       if (storedCommands) {
         setCommands(storedCommands)
       }
+      const storedWidth = await main.getShellStore('drawerWidth')
+      if (storedWidth) {
+        setDrawerWidth(storedWidth)
+      }
+      const storedVisible = await main.getShellStore('drawerVisible')
+      if (storedVisible !== null && storedVisible !== undefined) {
+        setDrawerVisible(storedVisible)
+      }
     }
     loadData()
   }, [])
+
+  // Render-time clamp: the persisted width is a user preference; at render we
+  // cap it to 60% of the current window width so shrinking the window never
+  // lets the sidebar overrun the terminal (<40%). The preference itself is
+  // preserved, so enlarging the window can restore the wider width.
+  const effectiveDrawerWidth = Math.min(
+    drawerWidth,
+    Math.max(MIN_DRAWER_WIDTH, windowWidth * MAX_DRAWER_RATIO)
+  )
 
   function add() {
     const id = uuid()
@@ -96,6 +149,89 @@ export default observer(function Shell() {
         selectedShell.terminal.focus()
       }
     }, 500)
+  }
+
+  // Visibility toggles persist immediately (low frequency).
+  function toggleDrawerVisible() {
+    setDrawerVisible((v) => {
+      const next = !v
+      main.setShellStore('drawerVisible', next)
+      return next
+    })
+  }
+
+  // Resize handle drag: the handle is a dedicated flex item between the
+  // terminal slot and the sidebar (not an absolutely-positioned overlay), so it
+  // is always hit-testable. mousemove updates width locally (terminal refits);
+  // mouseup persists once.
+  const resizeRef = useRef({ startX: 0, startWidth: 0, currentWidth: 0 })
+  const handleResizeMove = useCallback(
+    (e: MouseEvent) => {
+      const delta = resizeRef.current.startX - e.clientX
+      const newWidth = Math.min(
+        Math.max(resizeRef.current.startWidth + delta, MIN_DRAWER_WIDTH),
+        window.innerWidth * MAX_DRAWER_RATIO
+      )
+      resizeRef.current.currentWidth = newWidth
+      setDrawerWidth(newWidth)
+    },
+    []
+  )
+  const handleResizeEnd = useCallback(() => {
+    document.removeEventListener('mousemove', handleResizeMove)
+    document.removeEventListener('mouseup', handleResizeEnd)
+    main.setShellStore('drawerWidth', resizeRef.current.currentWidth)
+  }, [handleResizeMove])
+  function handleResizeStart(e: React.MouseEvent) {
+    e.preventDefault()
+    resizeRef.current.startX = e.clientX
+    resizeRef.current.startWidth = effectiveDrawerWidth
+    resizeRef.current.currentWidth = effectiveDrawerWidth
+    document.addEventListener('mousemove', handleResizeMove)
+    document.addEventListener('mouseup', handleResizeEnd)
+  }
+
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('mousemove', handleResizeMove)
+      document.removeEventListener('mouseup', handleResizeEnd)
+    }
+  }, [handleResizeMove, handleResizeEnd])
+
+  function handleAddCommand() {
+    setEditingCommand(null)
+    setEditModalVisible(true)
+  }
+
+  function handleEditCommand(cmd: IShellCommand) {
+    setEditingCommand(cmd)
+    setEditModalVisible(true)
+  }
+
+  function handleSaveCommand(data: {
+    title: string
+    description: string
+    command: string
+    categoryId: string
+  }) {
+    if (editingCommand) {
+      const updated = map(commands, (cmd) => {
+        if (cmd.id === editingCommand.id) {
+          return { ...cmd, ...data }
+        }
+        return cmd
+      })
+      handleCommandsChange(updated)
+    } else {
+      const newCmd: IShellCommand = {
+        id: uuid(),
+        ...data,
+        builtin: false,
+        order: commands.length,
+      }
+      handleCommandsChange([...commands, newCmd])
+    }
+    setEditModalVisible(false)
   }
 
   const tabItems = map(shells, (shell) => {
@@ -152,23 +288,40 @@ export default observer(function Shell() {
           <ToolbarIcon
             icon="list"
             title={t('commandPanel')}
-            onClick={() => setDrawerVisible(!drawerVisible)}
-            disabled={!device}
+            onClick={toggleDrawerVisible}
           />
         </LunaToolbar>
       </div>
       <div className={className('panel-body', Style.panelBody)}>
-        {terms}
-        <CommandDrawer
-          visible={drawerVisible}
-          onClose={() => setDrawerVisible(false)}
-          onExecute={handleExecute}
-          categories={categories}
-          commands={commands}
-          onCategoriesChange={handleCategoriesChange}
-          onCommandsChange={handleCommandsChange}
-        />
+        <div className={Style.termSlot}>{terms}</div>
+        {drawerVisible && (
+          <>
+            <div
+              className={Style.resizeHandle}
+              onMouseDown={handleResizeStart}
+            />
+            <CommandDrawer
+              width={effectiveDrawerWidth}
+              onClose={() => toggleDrawerVisible()}
+              onExecute={handleExecute}
+              canExecute={!!device && !!selectedShell.sessionId}
+              onAddCommand={handleAddCommand}
+              onEditCommand={handleEditCommand}
+              categories={categories}
+              commands={commands}
+              onCategoriesChange={handleCategoriesChange}
+              onCommandsChange={handleCommandsChange}
+            />
+          </>
+        )}
       </div>
+      <CommandEditModal
+        visible={editModalVisible}
+        onClose={() => setEditModalVisible(false)}
+        onSave={handleSaveCommand}
+        command={editingCommand}
+        categories={categories}
+      />
     </div>
   )
 })

@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { observer } from 'mobx-react-lite'
 import LunaModal from 'luna-modal'
 import { t } from 'common/util'
@@ -12,14 +12,16 @@ import find from 'licia/find'
 import contain from 'licia/contain'
 import lowerCase from 'licia/lowerCase'
 import Style from './CommandDrawer.module.scss'
-import CommandEditModal from './CommandEditModal'
 import className from 'licia/className'
 import { ICommandCategory, IShellCommand } from 'common/types'
 
 interface ICommandDrawerProps {
-  visible: boolean
+  width: number
   onClose: () => void
   onExecute: (command: string) => void
+  canExecute: boolean
+  onAddCommand: () => void
+  onEditCommand: (cmd: IShellCommand) => void
   categories: ICommandCategory[]
   commands: IShellCommand[]
   onCategoriesChange: (categories: ICommandCategory[]) => void
@@ -28,9 +30,12 @@ interface ICommandDrawerProps {
 
 export default observer(function CommandDrawer(props: ICommandDrawerProps) {
   const {
-    visible,
+    width,
     onClose,
     onExecute,
+    canExecute,
+    onAddCommand,
+    onEditCommand,
     categories,
     commands,
     onCategoriesChange,
@@ -42,46 +47,8 @@ export default observer(function CommandDrawer(props: ICommandDrawerProps) {
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(
     new Set()
   )
-  const [editModalVisible, setEditModalVisible] = useState(false)
-  const [editingCommand, setEditingCommand] = useState<IShellCommand | null>(
-    null
-  )
-  const [drawerWidth, setDrawerWidth] = useState(380)
-  const [resizing, setResizing] = useState(false)
-  const resizeRef = useRef({ startX: 0, startWidth: 0 })
   const dragCatRef = useRef<string | null>(null)
   const dragCmdRef = useRef<string | null>(null)
-
-  const handleResizeMove = useCallback((e: MouseEvent) => {
-    const delta = resizeRef.current.startX - e.clientX
-    const newWidth = Math.min(
-      Math.max(resizeRef.current.startWidth + delta, 280),
-      window.innerWidth * 0.8
-    )
-    setDrawerWidth(newWidth)
-  }, [])
-
-  const handleResizeEnd = useCallback(() => {
-    setResizing(false)
-    document.removeEventListener('mousemove', handleResizeMove)
-    document.removeEventListener('mouseup', handleResizeEnd)
-  }, [handleResizeMove])
-
-  function handleResizeStart(e: React.MouseEvent) {
-    e.preventDefault()
-    resizeRef.current.startX = e.clientX
-    resizeRef.current.startWidth = drawerWidth
-    setResizing(true)
-    document.addEventListener('mousemove', handleResizeMove)
-    document.addEventListener('mouseup', handleResizeEnd)
-  }
-
-  useEffect(() => {
-    return () => {
-      document.removeEventListener('mousemove', handleResizeMove)
-      document.removeEventListener('mouseup', handleResizeEnd)
-    }
-  }, [handleResizeMove, handleResizeEnd])
 
   const sortedCategories = useMemo(() => {
     return clone(categories).sort((a: ICommandCategory, b: ICommandCategory) => a.order - b.order)
@@ -138,17 +105,8 @@ export default observer(function CommandDrawer(props: ICommandDrawerProps) {
   }
 
   function handleExecute(cmd: IShellCommand) {
+    if (!canExecute) return
     onExecute(cmd.command + '\n')
-  }
-
-  function handleAddCommand() {
-    setEditingCommand(null)
-    setEditModalVisible(true)
-  }
-
-  function handleEditCommand(cmd: IShellCommand) {
-    setEditingCommand(cmd)
-    setEditModalVisible(true)
   }
 
   async function handleDeleteCommand(cmd: IShellCommand) {
@@ -158,32 +116,6 @@ export default observer(function CommandDrawer(props: ICommandDrawerProps) {
     if (confirmed) {
       onCommandsChange(filter(commands, (c) => c.id !== cmd.id))
     }
-  }
-
-  function handleSaveCommand(data: {
-    title: string
-    description: string
-    command: string
-    categoryId: string
-  }) {
-    if (editingCommand) {
-      const updated = map(commands, (cmd) => {
-        if (cmd.id === editingCommand.id) {
-          return { ...cmd, ...data }
-        }
-        return cmd
-      })
-      onCommandsChange(updated)
-    } else {
-      const newCmd: IShellCommand = {
-        id: uuid(),
-        ...data,
-        builtin: false,
-        order: commands.length,
-      }
-      onCommandsChange([...commands, newCmd])
-    }
-    setEditModalVisible(false)
   }
 
   async function handleAddCategory() {
@@ -353,33 +285,25 @@ export default observer(function CommandDrawer(props: ICommandDrawerProps) {
   }
 
   return (
-    <>
-      <div
-        className={className(Style.drawer, {
-          [Style.visible]: visible,
-          [Style.resizing]: resizing,
-        })}
-        style={{ '--drawer-width': `${drawerWidth}px` } as React.CSSProperties}
-      >
-        <div
-          className={Style.resizeHandle}
-          onMouseDown={handleResizeStart}
-        />
-        <div className={Style.header}>
-          <span className={Style.title}>{t('commandPanel')}</span>
-          <button className={Style.closeBtn} onClick={onClose}>
-            ✕
-          </button>
-        </div>
+    <div
+      className={Style.drawer}
+      style={{ '--drawer-width': `${width}px` } as React.CSSProperties}
+    >
+      <div className={Style.header}>
+        <span className={Style.title}>{t('commandPanel')}</span>
+        <button className={Style.closeBtn} onClick={onClose}>
+          ✕
+        </button>
+      </div>
 
-        <div className={Style.searchBar}>
-          <input
-            type="text"
-            placeholder={t('searchCmd')}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+      <div className={Style.searchBar}>
+        <input
+          type="text"
+          placeholder={t('searchCmd')}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </div>
 
         <div className={Style.tabs}>
           <span
@@ -479,13 +403,14 @@ export default observer(function CommandDrawer(props: ICommandDrawerProps) {
                               Style.executeBtn
                             )}
                             onClick={() => handleExecute(cmd)}
+                            disabled={!canExecute}
                             title={t('execute')}
                           >
                             ▶
                           </button>
                           <button
                             className={Style.actionBtn}
-                            onClick={() => handleEditCommand(cmd)}
+                            onClick={() => onEditCommand(cmd)}
                             title={t('editCommand')}
                           >
                             ✎
@@ -512,7 +437,7 @@ export default observer(function CommandDrawer(props: ICommandDrawerProps) {
         <div className={Style.footer}>
           <button
             className={className(Style.footerBtn, Style.primaryBtn)}
-            onClick={handleAddCommand}
+            onClick={onAddCommand}
           >
             + {t('addCommand')}
           </button>
@@ -523,15 +448,6 @@ export default observer(function CommandDrawer(props: ICommandDrawerProps) {
             {t('exportCommands')}
           </button>
         </div>
-      </div>
-
-      <CommandEditModal
-        visible={editModalVisible}
-        onClose={() => setEditModalVisible(false)}
-        onSave={handleSaveCommand}
-        command={editingCommand}
-        categories={categories}
-      />
-    </>
+    </div>
   )
 })

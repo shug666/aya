@@ -45,11 +45,14 @@ export default observer(function Term(props: ITermProps) {
     fitAddonRef.current = fitAddon
     term.loadAddon(fitAddon)
     const fit = () => {
-      if (!isHidden(terminalRef.current!)) {
+      if (
+        fitAddonRef.current &&
+        terminalRef.current &&
+        !isHidden(terminalRef.current)
+      ) {
         fitAddon.fit()
       }
     }
-    window.addEventListener('resize', fit)
 
     term.loadAddon(new Unicode11Addon())
     term.unicode.activeVersion = '11'
@@ -61,6 +64,28 @@ export default observer(function Term(props: ITermProps) {
     }
 
     term.open(terminalRef.current!)
+
+    // Refit whenever the terminal container resizes — covers sidebar
+    // drag/open/close (flex reflow), window resize, and tab switches in one
+    // place, replacing the previous window 'resize' listener. Guarded by
+    // isHidden() so non-selected shells (display:none) don't refit. Mounted
+    // after term.open() so the canvas exists; ResizeObserver only fires once
+    // the element has a layout box, so no rAF deferral is needed.
+    //
+    // The callback is coalesced via requestAnimationFrame: ResizeObserver can
+    // fire several times per frame during a drag, and fit() itself mutates the
+    // xterm canvas which can re-trigger the observer. Batching to one fit per
+    // frame breaks that feedback loop and prevents the sidebar from jittering
+    // while the terminal is being resized.
+    let raf = 0
+    const resizeObserver = new ResizeObserver(() => {
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => {
+        raf = 0
+        fit()
+      })
+    })
+    resizeObserver.observe(terminalRef.current!)
     term.attachCustomKeyEventHandler((event) => {
       if (event.type !== 'keydown') return true
       if (event.ctrlKey && event.shiftKey && event.code === 'KeyC') {
@@ -119,8 +144,9 @@ export default observer(function Term(props: ITermProps) {
       if (sessionIdRef.current) {
         main.killShell(sessionIdRef.current)
       }
+      if (raf) cancelAnimationFrame(raf)
+      resizeObserver.disconnect()
       term.dispose()
-      window.removeEventListener('resize', fit)
     }
   }, [])
 

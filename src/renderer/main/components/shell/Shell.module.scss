@@ -12,6 +12,48 @@
 }
 
 .panelBody {
-  position: relative;
+  display: flex;
   overflow: hidden;
+}
+
+// Terminal slot: takes all remaining width after the sidebar. min-width: 0 is
+// essential — without it the flex item won't shrink below its content
+// (xterm canvas) width, so xterm's own sizing would push the sidebar and the
+// two would fight during fit()/resize, causing jitter. position: relative so
+// the stacked Terms (only one display:block at a time) fill the slot.
+.termSlot {
+  flex: 1 1 0;
+  min-width: 0;
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  // Match the terminal's black canvas so any sub-row gap from FitAddon's
+  // floor() never shows the panel's light background as an empty strip.
+  background: #000;
+}
+
+// Resize handle: a real flex item (not an overlay) sitting between the
+// terminal slot and the sidebar. Being a normal flex child makes it reliably
+// hit-testable — no negative offsets or stacking-context tricks needed. It's
+// a wide transparent grab strip; a 2px indicator line shows on hover.
+.resizeHandle {
+  flex: 0 0 7px;
+  position: relative;
+  cursor: col-resize;
+  z-index: 5;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 2px;
+    bottom: 0;
+    width: 2px;
+    background: var(--color-border, #c9ccd6);
+    transition: background 0.2s;
+  }
+
+  &:hover::after {
+    background: #4fb155;
+  }
 }
