@@ -34,11 +34,12 @@ export default observer(function Shell() {
   // Sidebar is visible by default; width/visibility persist across sessions.
   const [drawerVisible, setDrawerVisible] = useState(true)
   const [drawerWidth, setDrawerWidth] = useState(DEFAULT_DRAWER_WIDTH)
-  const [selectedShell, setSelectedShell] = useState<IShell>({
-    id: '',
-    name: '',
-    sessionId: '',
-  })
+  // The selected shell is tracked by id and derived from `shells`, so the
+  // selected shell's sessionId/terminal (updated via immutable `updateShell`)
+  // always flow through React state — a session becoming ready re-renders and
+  // enables the command drawer's execute button without an unrelated
+  // interaction (tab switch / resize / sidebar toggle).
+  const [selectedShellId, setSelectedShellId] = useState('')
   const [categories, setCategories] = useState<ICommandCategory[]>([])
   const [commands, setCommands] = useState<IShellCommand[]>([])
   // Edit modal is owned by the shell page (not the sidebar) so hiding the
@@ -53,6 +54,13 @@ export default observer(function Shell() {
   const [windowWidth, setWindowWidth] = useState(
     typeof window !== 'undefined' ? window.innerWidth : DEFAULT_DRAWER_WIDTH
   )
+
+  // Derived: the selected shell is looked up from `shells` by id. Never hold a
+  // separate `selectedShell` state — that created a second source of truth that
+  // drifted from `shells` (sessionId/terminal were mutated directly, invisible
+  // to React, leaving the execute button stuck disabled until an unrelated
+  // re-render happened to re-read the mutated field).
+  const selectedShell = find(shells, (s) => s.id === selectedShellId) ?? null
 
   useEffect(() => add(), [])
 
@@ -115,7 +123,7 @@ export default observer(function Shell() {
       sessionId: '',
     }
     setShells([...shells, shell])
-    setSelectedShell(shell)
+    setSelectedShellId(id)
   }
 
   function close(id: string) {
@@ -124,11 +132,11 @@ export default observer(function Shell() {
     const newShells = filter(shells, (shell) => shell.id !== id)
     setShells(newShells)
 
-    if (closedShell === selectedShell) {
+    if (closedShell && closedShell.id === selectedShellId) {
       if (closedIdx >= newShells.length) {
         closedIdx = newShells.length - 1
       }
-      setSelectedShell(newShells[closedIdx])
+      setSelectedShellId(newShells[closedIdx]?.id ?? '')
     }
   }
 
@@ -142,11 +150,22 @@ export default observer(function Shell() {
     main.setShellStore('commands', newCommands)
   }
 
+  // Update a shell entry immutably so React observes the change. Replaces the
+  // previous direct mutations (shell.sessionId = id / shell.terminal = terminal)
+  // that never triggered a re-render, which kept canExecute stuck at false.
+  function updateShell(id: string, patch: Partial<IShell>) {
+    setShells((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, ...patch } : s))
+    )
+  }
+
   function handleExecute(command: string) {
+    if (!selectedShell) return
     main.writeShell(selectedShell.sessionId, command)
+    const terminal = selectedShell.terminal
     setTimeout(() => {
-      if (selectedShell.terminal) {
-        selectedShell.terminal.focus()
+      if (terminal) {
+        terminal.focus()
       }
     }, 500)
   }
@@ -241,7 +260,7 @@ export default observer(function Shell() {
         id={shell.id}
         title={shell.name}
         closable={true}
-        selected={selectedShell.id === shell.id}
+        selected={selectedShellId === shell.id}
       />
     )
   })
@@ -250,13 +269,9 @@ export default observer(function Shell() {
     return (
       <Term
         key={shell.id}
-        onSessionIdChange={(id) => {
-          shell.sessionId = id
-        }}
-        onCreate={(terminal) => {
-          shell.terminal = terminal
-        }}
-        visible={selectedShell.id === shell.id && store.panel === 'shell'}
+        onSessionIdChange={(id) => updateShell(shell.id, { sessionId: id })}
+        onCreate={(terminal) => updateShell(shell.id, { terminal })}
+        visible={selectedShellId === shell.id && store.panel === 'shell'}
       />
     )
   })
@@ -268,10 +283,7 @@ export default observer(function Shell() {
           className={Style.tabs}
           height={31}
           onSelect={(id) => {
-            const shell = find(shells, (shell) => shell.id === id)
-            if (shell) {
-              setSelectedShell(shell)
-            }
+            setSelectedShellId(id)
           }}
           onClose={close}
         >
@@ -304,7 +316,7 @@ export default observer(function Shell() {
               width={effectiveDrawerWidth}
               onClose={() => toggleDrawerVisible()}
               onExecute={handleExecute}
-              canExecute={!!device && !!selectedShell.sessionId}
+              canExecute={!!device && !!selectedShell?.sessionId}
               onAddCommand={handleAddCommand}
               onEditCommand={handleEditCommand}
               categories={categories}
