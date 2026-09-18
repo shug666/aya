@@ -220,5 +220,11 @@
   "moveUp": "上移",
   "moveDown": "下移",
   "noTabsEnabled": "沒有啟用的分頁，請在設定中開啟",
-  "lastTabWarning": "至少需要保留一個分頁"
+  "lastTabWarning": "至少需要保留一個分頁",
+  "filterSyntaxError": "查詢語法錯誤",
+  "filterPlaceholder": "過濾日誌，例如 tag:MainActivity level:error | is:crash",
+  "saveFilter": "儲存為快捷指令",
+  "removeFilter": "移除快捷指令",
+  "filterName": "名稱",
+  "cancel": "取消"
 }

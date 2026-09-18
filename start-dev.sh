@@ -14,6 +14,10 @@ trap 'echo "🛑 应用已关闭，正在清理后台服务..."; kill $(jobs -p)
 # 为了避免读取到旧文件，先删除历史构建产物
 rm -f dist/main/index.js
 
+# 清理 Vite 依赖预打包缓存，确保 node_modules 中经 patch-package 修改的第三方库
+# （如 luna-logcat）被重新打包，避免 dev 运行时用到补丁前的旧缓存。
+rm -rf node_modules/.vite
+
 echo "🚀 [2/3] 后台启动 Vite 开发服务器 (npm run dev)..."
 npm run dev &
 

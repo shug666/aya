@@ -17,31 +17,243 @@ index 6aec436..e37a7ae 100644
  interface IBaseEntry {
      package: string;
 diff --git a/node_modules/luna-logcat/cjs/logcat/index.js b/node_modules/luna-logcat/cjs/logcat/index.js
-index d8c399d..78179b5 100644
+index d8c399d..3ee8268 100644
 --- a/node_modules/luna-logcat/cjs/logcat/index.js
 +++ b/node_modules/luna-logcat/cjs/logcat/index.js
-@@ -68,6 +68,7 @@ var Logcat = (function (_super) {
+@@ -68,7 +68,10 @@ var Logcat = (function (_super) {
              view: 'standard',
              entries: [],
              wrapLongLines: false,
 +            fontSize: 13,
          });
++        // 崩溃会话识别状态（is:crash 跨条关联，模型 B：entry 预标记）
++        _this.activeCrashSession = null; // { pid, tag, sessionId, nonStackCount }
          _this.resizeSensor = new ResizeSensor_1.default(container);
          _this.initTpl();
-@@ -164,6 +165,12 @@ var Logcat = (function (_super) {
+         _this.virtualList = new luna_virtual_list_1.default(_this.find('.virtual-list').get(0), { autoScroll: true });
+@@ -115,11 +118,91 @@ var Logcat = (function (_super) {
+         }
+         container.innerHTML =
+             view === 'standard' ? this.formatStandard(e) : this.formatCompact(e);
++        // is:crash / is:stacktrace 预标记（模型 B：标记写 entry，filterEntry 逐条无状态读）
++        this._markCrash(e);
+         if (this.filterEntry(e)) {
+             this.displayEntries.push(e);
+             this.virtualList.append(container);
+         }
+     };
++    // Java 堆栈文本特征（is:stacktrace 逐条识别）
++    Logcat.prototype._isStackTraceText = function (message) {
++        var msg = message || '';
++        if (/^\s*at\s+[\w.$]+\.[\w$<>]+\([^)]*:\d+\)/.test(msg)) {
++            return true;
++        }
++        if (/^Caused by:/.test(msg)) {
++            return true;
++        }
++        return false;
++    };
++    // 崩溃头特征（Java / Native）
++    Logcat.prototype._isCrashHead = function (entry) {
++        var tag = entry.tag || '';
++        var msg = entry.message || '';
++        if (tag === 'AndroidRuntime' && /FATAL EXCEPTION/.test(msg)) {
++            return true;
++        }
++        if (/Fatal signal/.test(msg) || /crash_dump/.test(msg)) {
++            return true;
++        }
++        return false;
++    };
++    // 进程结束标记
++    Logcat.prototype._isProcessEnd = function (entry) {
++        var msg = entry.message || '';
++        if (/PROCESS ENDED/.test(msg)) {
++            return true;
++        }
++        // AndroidRuntime 的 "Process X, PID: Y" 收尾行
++        if (entry.tag === 'AndroidRuntime' && /^Process .*PID:/.test(msg)) {
++            return true;
++        }
++        return false;
++    };
++    // 给 entry 打 crash 会话标记。维护 activeCrashSession。
++    Logcat.prototype._markCrash = function (entry) {
++        entry.sessionId = null;
++        entry.isCrashHead = false;
++        entry.isStackTrace = this._isStackTraceText(entry.message || '');
++        var isHead = this._isCrashHead(entry);
++        var isEnd = this._isProcessEnd(entry);
++        var session = this.activeCrashSession;
++        // 进程结束：关闭会话
++        if (isEnd && session) {
++            this.activeCrashSession = null;
++            session = null;
++        }
++        // 新崩溃头：开新会话（若旧会话 pid 不同则先关）
++        if (isHead) {
++            var sid = 'crash-' + entry.idx;
++            this.activeCrashSession = {
++                pid: entry.pid,
++                tag: entry.tag,
++                sessionId: sid,
++                nonStackCount: 0,
++            };
++            entry.sessionId = sid;
++            entry.isCrashHead = true;
++            return;
++        }
++        // 会话内：同 pid 同 tag 关联
++        if (session && entry.pid === session.pid && entry.tag === session.tag) {
++            entry.sessionId = session.sessionId;
++            // 兜底：连续非堆栈非崩溃头行计数，超 ~5 关闭
++            if (!entry.isStackTrace) {
++                session.nonStackCount += 1;
++                if (session.nonStackCount > 5) {
++                    this.activeCrashSession = null;
++                }
++            }
++            else {
++                session.nonStackCount = 0;
++            }
++            return;
++        }
++        // 不在会话内且非头：无标记
++    };
+     Logcat.prototype.clear = function () {
+         this.entries = [];
+         this.virtualList.clear();
+@@ -144,23 +227,118 @@ var Logcat = (function (_super) {
+         var selection = window.getSelection();
+         return selection ? selection.toString() : '';
+     };
++    // 求值预编译 AST（由 Logcat.tsx 经 setFilterAst 写入单根 AST）。
++    // AST 形态：term|keyval|not|and|or；null 表示不过滤。
++    // 永不 throw：AST 由 Logcat.tsx 保证合法后才写入。
++    Logcat.prototype._regexCache = null;
++    Logcat.prototype._getRegex = function (pattern) {
++        if (!this._regexCache) {
++            this._regexCache = {};
++        }
++        var re = this._regexCache[pattern];
++        if (re) {
++            return re;
++        }
++        try {
++            re = new RegExp(pattern);
++        }
++        catch (e) {
++            re = null;
++        }
++        this._regexCache[pattern] = re;
++        return re;
++    };
++    Logcat.prototype._evalAst = function (node, entry) {
++        if (!node) {
++            return true;
++        }
++        switch (node.type) {
++            case 'term': {
++                if (!node.value) {
++                    return true;
++                }
++                return (0, contain_1.default)((0, lowerCase_1.default)(entry.message || ''), (0, lowerCase_1.default)(node.value));
++            }
++            case 'keyval': {
++                // name: 恒真
++                if (node.key === 'name') {
++                    return true;
++                }
++                // is:crash / is:stacktrace 读 entry 预标记
++                if (node.key === 'is') {
++                    var v = (node.value || '').toLowerCase();
++                    var hit = false;
++                    if (v === 'crash') {
++                        hit = entry.sessionId != null;
++                    }
++                    else if (v === 'stacktrace') {
++                        hit = !!entry.isStackTrace;
++                    }
++                    return node.negate ? !hit : hit;
++                }
++                // level: >= 比较
++                if (node.key === 'level') {
++                    var lvl = this._levelMap[(node.value || '').toLowerCase()];
++                    if (lvl === undefined) {
++                        return node.negate ? true : false;
++                    }
++                    var hit = entry.priority >= lvl;
++                    return node.negate ? !hit : hit;
++                }
++                // package / tag / message：包含或正则
++                var field = entry[node.key] || '';
++                var hit = false;
++                if (node.regex) {
++                    var re = this._getRegex(node.value || '');
++                    hit = re ? re.test(field) : false;
++                }
++                else {
++                    hit = (0, contain_1.default)((0, lowerCase_1.default)(field), (0, lowerCase_1.default)(node.value || ''));
++                }
++                return node.negate ? !hit : hit;
++            }
++            case 'not':
++                return !this._evalAst(node.child, entry);
++            case 'and':
++                for (var i = 0; i < node.children.length; i++) {
++                    if (!this._evalAst(node.children[i], entry)) {
++                        return false;
++                    }
++                }
++                return true;
++            case 'or':
++                for (var i = 0; i < node.children.length; i++) {
++                    if (this._evalAst(node.children[i], entry)) {
++                        return true;
++                    }
++                }
++                return false;
++        }
++        return true;
++    };
++    // level 名称 → 数字（与渲染端 filterQuery LEVEL_MAP 一致）
++    Logcat.prototype._levelMap = {
++        verbose: 2, debug: 3, info: 4, warn: 5, warning: 5, error: 6, assert: 7, fatal: 7,
++        v: 2, d: 3, i: 4, w: 5, e: 6, a: 7, f: 7,
++    };
++    // 由 Logcat.tsx 在 setOption('filter') 之前调用，写入单根预编译 AST。
++    Logcat.prototype.setFilterAst = function (ast) {
++        this._filterAst = ast || null;
++    };
+     Logcat.prototype.filterEntry = function (entry) {
+         var filter = this.options.filter;
+         if (!filter) {
+             return true;
+         }
+-        if (filter.priority && entry.priority < filter.priority) {
+-            return false;
++        var ast = this._filterAst;
++        if (ast) {
++            // 有预编译单根 AST：整条复合查询求值
++            return this._evalAst(ast, entry);
+         }
+-        var pkg = (0, trim_1.default)(filter.package || '');
+-        if (pkg) {
+-            if (!(0, contain_1.default)((0, lowerCase_1.default)(entry.package), (0, lowerCase_1.default)(pkg))) {
+-                return false;
+-            }
+-        }
+-        var tag = (0, trim_1.default)(filter.tag || '');
+-        if (tag) {
+-            if (!(0, contain_1.default)((0, lowerCase_1.default)(entry.tag), (0, lowerCase_1.default)(tag))) {
++        // 回退：无 AST 时把 filter 当裸 message 子串（兼容/安全）
++        var raw = (0, trim_1.default)(typeof filter === 'string' ? filter : (filter.message || ''));
++        if (raw) {
++            if (!(0, contain_1.default)((0, lowerCase_1.default)(entry.message || ''), (0, lowerCase_1.default)(raw))) {
                  return false;
              }
          }
-+        var message = (0, trim_1.default)(filter.message || '');
-+        if (message) {
-+            if (!(0, contain_1.default)((0, lowerCase_1.default)(entry.message), (0, lowerCase_1.default)(message))) {
-+                return false;
-+            }
-+        }
-         return true;
-     };
-     Logcat.prototype.initTpl = function () {
-@@ -185,6 +192,10 @@ var Logcat = (function (_super) {
+@@ -185,6 +363,10 @@ var Logcat = (function (_super) {
                      }
                      _this.virtualList.update();
                      break;
@@ -52,6 +264,28 @@ index d8c399d..78179b5 100644
                  case 'maxNum':
                      if (val > 0 && entries.length > val) {
                          _this.entries = entries.slice(entries.length - val);
+@@ -215,8 +397,19 @@ var Logcat = (function (_super) {
+         this.$container
+             .on('contextmenu', c('.entry'), function (e) {
+             e.stopPropagation();
+-            var idx = (0, _1.default)(this).data('idx');
+-            var entry = self.entries[(0, toNum_1.default)(idx)];
++            var idx = (0, toNum_1.default)((0, _1.default)(this).data('idx'));
++            // idx 是 entry 创建时的快照序号，buffer 淘汰 shift() 后数组下标与 idx 错位，
++            // 不能用 entries[idx] 下标查（会越界→undefined→omit 炸）。按 idx 值线性查当前存活 entries。
++            var entry = null;
++            for (var i = 0, len = self.entries.length; i < len; i++) {
++                if (self.entries[i].idx === idx) {
++                    entry = self.entries[i];
++                    break;
++                }
++            }
++            if (!entry) {
++                return;
++            }
+             self.emit('contextmenu', e.origEvent, (0, omit_1.default)(entry, function (val, key) {
+                 return key === 'container' || key === 'idx';
+             }));
 diff --git a/node_modules/luna-logcat/cjs/logcat/react.js b/node_modules/luna-logcat/cjs/logcat/react.js
 index 5538630..c85186f 100644
 --- a/node_modules/luna-logcat/cjs/logcat/react.js
@@ -99,31 +333,232 @@ index 6aec436..e37a7ae 100644
  interface IBaseEntry {
      package: string;
 diff --git a/node_modules/luna-logcat/esm/logcat/index.js b/node_modules/luna-logcat/esm/logcat/index.js
-index 6fa9923..9f548e7 100644
+index 6fa9923..5ffafb1 100644
 --- a/node_modules/luna-logcat/esm/logcat/index.js
 +++ b/node_modules/luna-logcat/esm/logcat/index.js
-@@ -35,6 +35,7 @@ export default class Logcat extends Component {
+@@ -35,7 +35,10 @@ export default class Logcat extends Component {
              view: 'standard',
              entries: [],
              wrapLongLines: false,
 +            fontSize: 13,
          });
++        // 崩溃会话识别状态（is:crash 跨条关联，模型 B：entry 预标记）
++        this.activeCrashSession = null; // { pid, tag, sessionId, nonStackCount }
          this.resizeSensor = new ResizeSensor(container);
          this.initTpl();
-@@ -135,6 +136,12 @@ export default class Logcat extends Component {
+         this.virtualList = new LunaVirtualList(this.find('.virtual-list').get(0), { autoScroll: true });
+@@ -86,11 +89,85 @@ export default class Logcat extends Component {
+         }
+         container.innerHTML =
+             view === 'standard' ? this.formatStandard(e) : this.formatCompact(e);
++        // is:crash / is:stacktrace 预标记（模型 B：标记写 entry，filterEntry 逐条无状态读）
++        this._markCrash(e);
+         if (this.filterEntry(e)) {
+             this.displayEntries.push(e);
+             this.virtualList.append(container);
+         }
+     }
++    // Java 堆栈文本特征（is:stacktrace 逐条识别）
++    _isStackTraceText(message) {
++        const msg = message || '';
++        if (/^\s*at\s+[\w.$]+\.[\w$<>]+\([^)]*:\d+\)/.test(msg)) {
++            return true;
++        }
++        if (/^Caused by:/.test(msg)) {
++            return true;
++        }
++        return false;
++    }
++    // 崩溃头特征（Java / Native）
++    _isCrashHead(entry) {
++        const tag = entry.tag || '';
++        const msg = entry.message || '';
++        if (tag === 'AndroidRuntime' && /FATAL EXCEPTION/.test(msg)) {
++            return true;
++        }
++        if (/Fatal signal/.test(msg) || /crash_dump/.test(msg)) {
++            return true;
++        }
++        return false;
++    }
++    // 进程结束标记
++    _isProcessEnd(entry) {
++        const msg = entry.message || '';
++        if (/PROCESS ENDED/.test(msg)) {
++            return true;
++        }
++        if (entry.tag === 'AndroidRuntime' && /^Process .*PID:/.test(msg)) {
++            return true;
++        }
++        return false;
++    }
++    // 给 entry 打 crash 会话标记。维护 activeCrashSession。
++    _markCrash(entry) {
++        entry.sessionId = null;
++        entry.isCrashHead = false;
++        entry.isStackTrace = this._isStackTraceText(entry.message || '');
++        const isHead = this._isCrashHead(entry);
++        const isEnd = this._isProcessEnd(entry);
++        let session = this.activeCrashSession;
++        if (isEnd && session) {
++            this.activeCrashSession = null;
++            session = null;
++        }
++        if (isHead) {
++            const sid = 'crash-' + entry.idx;
++            this.activeCrashSession = {
++                pid: entry.pid,
++                tag: entry.tag,
++                sessionId: sid,
++                nonStackCount: 0,
++            };
++            entry.sessionId = sid;
++            entry.isCrashHead = true;
++            return;
++        }
++        if (session && entry.pid === session.pid && entry.tag === session.tag) {
++            entry.sessionId = session.sessionId;
++            if (!entry.isStackTrace) {
++                session.nonStackCount += 1;
++                if (session.nonStackCount > 5) {
++                    this.activeCrashSession = null;
++                }
++            }
++            else {
++                session.nonStackCount = 0;
++            }
++            return;
++        }
++    }
+     clear() {
+         this.entries = [];
+         this.virtualList.clear();
+@@ -115,23 +192,113 @@ export default class Logcat extends Component {
+         const selection = window.getSelection();
+         return selection ? selection.toString() : '';
+     }
++    // 求值预编译 AST（由 Logcat.tsx 经 setFilterAst 写入单根 AST）。
++    // AST 形态：term|keyval|not|and|or；null 表示不过滤。永不 throw。
++    _regexCache = null;
++    _getRegex(pattern) {
++        if (!this._regexCache) {
++            this._regexCache = {};
++        }
++        const re = this._regexCache[pattern];
++        if (re) {
++            return re;
++        }
++        let compiled = null;
++        try {
++            compiled = new RegExp(pattern);
++        }
++        catch (e) {
++            compiled = null;
++        }
++        this._regexCache[pattern] = compiled;
++        return compiled;
++    }
++    // level 名称 → 数字（与渲染端 filterQuery LEVEL_MAP 一致）
++    _levelMap = {
++        verbose: 2, debug: 3, info: 4, warn: 5, warning: 5, error: 6, assert: 7, fatal: 7,
++        v: 2, d: 3, i: 4, w: 5, e: 6, a: 7, f: 7,
++    };
++    _evalAst(node, entry) {
++        if (!node) {
++            return true;
++        }
++        switch (node.type) {
++            case 'term': {
++                if (!node.value) {
++                    return true;
++                }
++                return contain(lowerCase(entry.message || ''), lowerCase(node.value));
++            }
++            case 'keyval': {
++                if (node.key === 'name') {
++                    return true;
++                }
++                if (node.key === 'is') {
++                    const v = (node.value || '').toLowerCase();
++                    let hit = false;
++                    if (v === 'crash') {
++                        hit = entry.sessionId != null;
++                    }
++                    else if (v === 'stacktrace') {
++                        hit = !!entry.isStackTrace;
++                    }
++                    return node.negate ? !hit : hit;
++                }
++                if (node.key === 'level') {
++                    const lvl = this._levelMap[(node.value || '').toLowerCase()];
++                    if (lvl === undefined) {
++                        return node.negate ? true : false;
++                    }
++                    const hit = entry.priority >= lvl;
++                    return node.negate ? !hit : hit;
++                }
++                const field = entry[node.key] || '';
++                let hit = false;
++                if (node.regex) {
++                    const re = this._getRegex(node.value || '');
++                    hit = re ? re.test(field) : false;
++                }
++                else {
++                    hit = contain(lowerCase(field), lowerCase(node.value || ''));
++                }
++                return node.negate ? !hit : hit;
++            }
++            case 'not':
++                return !this._evalAst(node.child, entry);
++            case 'and':
++                for (const c of node.children) {
++                    if (!this._evalAst(c, entry)) {
++                        return false;
++                    }
++                }
++                return true;
++            case 'or':
++                for (const c of node.children) {
++                    if (this._evalAst(c, entry)) {
++                        return true;
++                    }
++                }
++                return false;
++        }
++        return true;
++    }
++    // 由 Logcat.tsx 在 setOption('filter') 之前调用，写入单根预编译 AST。
++    setFilterAst(ast) {
++        this._filterAst = ast || null;
++    }
+     filterEntry(entry) {
+         const { filter } = this.options;
+         if (!filter) {
+             return true;
+         }
+-        if (filter.priority && entry.priority < filter.priority) {
+-            return false;
++        const ast = this._filterAst;
++        if (ast) {
++            return this._evalAst(ast, entry);
+         }
+-        const pkg = trim(filter.package || '');
+-        if (pkg) {
+-            if (!contain(lowerCase(entry.package), lowerCase(pkg))) {
+-                return false;
+-            }
+-        }
+-        const tag = trim(filter.tag || '');
+-        if (tag) {
+-            if (!contain(lowerCase(entry.tag), lowerCase(tag))) {
++        // 回退：无 AST 时把 filter 当裸 message 子串（兼容/安全）
++        const raw = trim(typeof filter === 'string' ? filter : (filter.message || ''));
++        if (raw) {
++            if (!contain(lowerCase(entry.message || ''), lowerCase(raw))) {
                  return false;
              }
          }
-+        const message = trim(filter.message || '');
-+        if (message) {
-+            if (!contain(lowerCase(entry.message), lowerCase(message))) {
-+                return false;
-+            }
-+        }
-         return true;
-     }
-     initTpl() {
-@@ -155,6 +162,10 @@ export default class Logcat extends Component {
+@@ -155,6 +322,10 @@ export default class Logcat extends Component {
                      }
                      this.virtualList.update();
                      break;
@@ -134,6 +569,28 @@ index 6fa9923..9f548e7 100644
                  case 'maxNum':
                      if (val > 0 && entries.length > val) {
                          this.entries = entries.slice(entries.length - val);
+@@ -185,8 +356,19 @@ export default class Logcat extends Component {
+         this.$container
+             .on('contextmenu', c('.entry'), function (e) {
+             e.stopPropagation();
+-            const idx = $(this).data('idx');
+-            const entry = self.entries[toNum(idx)];
++            const idx = toNum($(this).data('idx'));
++            // idx 是 entry 创建时的快照序号，buffer 淘汰 shift() 后数组下标与 idx 错位，
++            // 不能用 entries[idx] 下标查（会越界→undefined→omit 炸）。按 idx 值线性查当前存活 entries。
++            let entry = null;
++            for (let i = 0, len = self.entries.length; i < len; i++) {
++                if (self.entries[i].idx === idx) {
++                    entry = self.entries[i];
++                    break;
++                }
++            }
++            if (!entry) {
++                return;
++            }
+             self.emit('contextmenu', e.origEvent, omit(entry, (val, key) => {
+                 return key === 'container' || key === 'idx';
+             }));
 diff --git a/node_modules/luna-logcat/esm/logcat/react.js b/node_modules/luna-logcat/esm/logcat/react.js
 index a1e00e7..20585c3 100644
 --- a/node_modules/luna-logcat/esm/logcat/react.js

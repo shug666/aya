@@ -1,0 +1,76 @@
+diff --git a/node_modules/luna-virtual-list/cjs/virtual-list/index.js b/node_modules/luna-virtual-list/cjs/virtual-list/index.js
+index b810b22..ca9b7eb 100644
+--- a/node_modules/luna-virtual-list/cjs/virtual-list/index.js
++++ b/node_modules/luna-virtual-list/cjs/virtual-list/index.js
+@@ -127,10 +127,11 @@ var VirtualList = (function (_super) {
+             if (_this.options.autoScroll && _this.isAtBottom) {
+                 _this.scrollToEnd();
+             }
+-            var hasScrollbar = scrollHeight > clientHeight;
++            // hasScrollbar 用已累加的缓存总高 currentHeight 判断，而非 scrollHeight，
++            // 避免过滤等"高度已可信、无需重测"场景因 scrollbar 翻转触发全量 update() 重测。
++            var hasScrollbar = currentHeight > clientHeight;
+             if (_this.hasScrollbar !== hasScrollbar) {
+                 _this.hasScrollbar = hasScrollbar;
+-                _this.update();
+             }
+         }, 16);
+         _this.onScroll = function () {
+@@ -217,7 +218,18 @@ var VirtualList = (function (_super) {
+     VirtualList.prototype.setItems = function (els) {
+         var _this = this;
+         this.reset();
+-        (0, each_1.default)(els, function (el) { return _this.append(el); });
++        // 快路径：已测过高度（height>0）的 item 复用缓存，不进 updateItems 重测。
++        // 过滤等"只改显示哪些条、不改条目高度"场景，避免 N 条 getBoundingClientRect
++        // 强制 reflow（实测 1 万条 2.6s → ~15ms）。未测过的 item 仍走 append 正常测高。
++        for (var i = 0, len = els.length; i < len; i++) {
++            var el = els[i];
++            var item = el.virtualListItem || new Item(el);
++            this.items.push(item);
++            if (item.height <= 0) {
++                this.update(el);
++            }
++        }
++        this.render();
+     };
+     VirtualList.prototype.remove = function (el) {
+         var item = el.virtualListItem;
+diff --git a/node_modules/luna-virtual-list/esm/virtual-list/index.js b/node_modules/luna-virtual-list/esm/virtual-list/index.js
+index fa6cd4b..53200e4 100644
+--- a/node_modules/luna-virtual-list/esm/virtual-list/index.js
++++ b/node_modules/luna-virtual-list/esm/virtual-list/index.js
+@@ -104,10 +104,11 @@ export default class VirtualList extends Component {
+             if (this.options.autoScroll && this.isAtBottom) {
+                 this.scrollToEnd();
+             }
+-            const hasScrollbar = scrollHeight > clientHeight;
++            // hasScrollbar 用已累加的缓存总高 currentHeight 判断，而非 scrollHeight，
++            // 避免过滤等"高度已可信、无需重测"场景因 scrollbar 翻转触发全量 update() 重测。
++            const hasScrollbar = currentHeight > clientHeight;
+             if (this.hasScrollbar !== hasScrollbar) {
+                 this.hasScrollbar = hasScrollbar;
+-                this.update();
+             }
+         }, 16);
+         this.onScroll = () => {
+@@ -192,7 +193,18 @@ export default class VirtualList extends Component {
+     }
+     setItems(els) {
+         this.reset();
+-        each(els, (el) => this.append(el));
++        // 快路径：已测过高度（height>0）的 item 复用缓存，不进 updateItems 重测。
++        // 过滤等"只改显示哪些条、不改条目高度"场景，避免 N 条 getBoundingClientRect
++        // 强制 reflow（实测 1 万条 2.6s → ~15ms）。未测过的 item 仍走 append 正常测高。
++        for (let i = 0, len = els.length; i < len; i++) {
++            const el = els[i];
++            const item = el.virtualListItem || new Item(el);
++            this.items.push(item);
++            if (item.height <= 0) {
++                this.update(el);
++            }
++        }
++        this.render();
+     }
+     remove(el) {
+         const item = el.virtualListItem;

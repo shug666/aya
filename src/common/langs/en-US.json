@@ -275,5 +275,11 @@
   "moveUp": "Move Up",
   "moveDown": "Move Down",
   "noTabsEnabled": "No tabs enabled. Enable tabs in Settings.",
-  "lastTabWarning": "At least one tab must remain enabled"
+  "lastTabWarning": "At least one tab must remain enabled",
+  "filterSyntaxError": "Filter syntax error",
+  "filterPlaceholder": "Filter logs, e.g. tag:MainActivity level:error | is:crash",
+  "saveFilter": "Save as shortcut",
+  "removeFilter": "Remove shortcut",
+  "filterName": "Name",
+  "cancel": "Cancel"
 }

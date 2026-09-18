@@ -275,5 +275,11 @@
   "moveUp": "上移",
   "moveDown": "下移",
   "noTabsEnabled": "没有启用的标签页，请在设置中开启",
-  "lastTabWarning": "至少需要保留一个标签页"
+  "lastTabWarning": "至少需要保留一个标签页",
+  "filterSyntaxError": "查询语法错误",
+  "filterPlaceholder": "过滤日志，例如 tag:MainActivity level:error | is:crash",
+  "saveFilter": "保存为快捷命令",
+  "removeFilter": "移除快捷命令",
+  "filterName": "名称",
+  "cancel": "取消"
 }
