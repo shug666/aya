@@ -25,7 +25,6 @@ export default observer(function Term(props: ITermProps) {
   const termRef = useRef<Terminal>(null)
   const fitAddonRef = useRef<FitAddon>(null)
   const sessionIdRef = useRef('')
-  const gutterRef = useRef<HTMLDivElement>(null)
 
   const { device } = store
 
@@ -229,21 +228,30 @@ export default observer(function Term(props: ITermProps) {
     contextMenu(e, template)
   }
 
-  // Double-click the left gutter: select the command block (prompt + output)
-  // nearest the clicked row via a lazy buffer scan. Disabled in TUI/alt buffer.
-  function onGutterDoubleClick(e: React.MouseEvent<HTMLDivElement>) {
+  // Double-click the left blank strip of the terminal area (the container's
+  // left padding plus the gutter band — the full strip left of the xterm
+  // canvas) selects the command block (prompt + output) nearest the clicked
+  // row via a lazy buffer scan. Disabled in TUI/alt buffer. Double-clicks that
+  // land on the text area (right of the canvas's left edge) fall through to
+  // xterm's native word/line selection: we just return without preventing
+  // default or stopping propagation, so xterm keeps its own result.
+  function onTermDoubleClick(e: React.MouseEvent<HTMLDivElement>) {
     const term = termRef.current
-    const gutter = gutterRef.current
-    if (!term || !gutter) return
+    const canvas = terminalRef.current
+    if (!term || !canvas) return
+    // Gate by x: only the left blank strip (left of the xterm canvas) is a
+    // block-select hit. On the canvas, do nothing and let xterm select.
+    if (e.clientX >= canvas.getBoundingClientRect().left) return
     const buffer = term.buffer.active
     if (buffer.type === 'alternate') return // TUI / full-screen app: no blocks
     const rows = term.rows
     if (rows <= 0) return
     // Map click pixel y → buffer line. cellHeight from the whole viewport
-    // (clientHeight / rows) avoids fragile per-cell measurement.
+    // (clientHeight / rows) avoids fragile per-cell measurement. The canvas
+    // top is the row origin (it aligns with the gutter band's top).
     const cellHeight = (term.element?.clientHeight ?? 0) / rows
     if (cellHeight <= 0) return
-    const offsetY = e.clientY - gutter.getBoundingClientRect().top
+    const offsetY = e.clientY - canvas.getBoundingClientRect().top
     const viewportRow = Math.floor(offsetY / cellHeight)
     const bufLine = Math.round(buffer.viewportY) + viewportRow
     const bounds = findBlockBounds(buffer, bufLine)
@@ -258,10 +266,10 @@ export default observer(function Term(props: ITermProps) {
       if (bounds.start < buffer.viewportY) {
         term.scrollToLine(bounds.start)
       }
-      // Restore focus to xterm: the double-click landed on the gutter (a
-      // sibling div), which steals focus from the terminal. Without this,
-      // Ctrl+Shift+C copy fails because the terminal's selection/textarea no
-      // longer has focus.
+      // Restore focus to xterm: the double-click landed on the left blank
+      // strip (outside the xterm element), which steals focus from the
+      // terminal. Without this, Ctrl+Shift+C copy fails because the
+      // terminal's selection/textarea no longer has focus.
       term.focus()
     }
   }
@@ -272,12 +280,9 @@ export default observer(function Term(props: ITermProps) {
         className={Style.term}
         style={{ display: props.visible ? 'block' : 'none' }}
         onContextMenu={onContextMenu}
+        onDoubleClick={onTermDoubleClick}
       >
-        <div
-          className={Style.gutter}
-          ref={gutterRef}
-          onDoubleClick={onGutterDoubleClick}
-        />
+        <div className={Style.gutter} />
         <div className={Style.termCanvas} ref={terminalRef} />
       </div>
     </>

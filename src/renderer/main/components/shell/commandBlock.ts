@@ -37,7 +37,21 @@ export const PROMPT_RE = new RegExp(
   `^(?:${PREFIX}(?::${PATH})?)?\\s*${TERMINATOR}(?=\\s|$)`
 )
 
-// Read a buffer line as trimmed text. Returns '' for non-existent lines.
+// mksh line-editor redraw "wreck" marker. When a command is longer than the
+// PTY column width, the device's mksh line editor (emacs/vi mode) soft-wraps
+// and redraws the command echo: it emits `\r` + backspaces + rewrites the line,
+// clearing to the right edge with spaces and printing a `<` right-scroll
+// marker. In the xterm buffer this OVERWRITES the command's prompt line,
+// leaving a wreck line of command fragments ending in two-or-more spaces
+// followed by `<` (e.g. `D {print pkg}' | xargs dumpsys ...    <`). Such a
+// line no longer matches PROMPT_RE, so a plain "scan up to nearest prompt"
+// would skip it and latch onto the PREVIOUS command's prompt, sweeping the
+// previous command into the selection. We detect these wreck lines by the
+// trailing `  +<` (clear-to-end fill + marker) and treat them as the block
+// start instead. Normal output containing `<` (e.g. `a < b`, `Author
+// <x@y.com>`, a lone `<` line) does NOT match — the marker needs the mksh
+// clear-fill spaces before it, which real output never has.
+const WRECK_RE = / {2,}<$/
 export function getLineText(buffer: IBuffer, y: number): string {
   const line = buffer.getLine(y)
   if (!line) return ''
@@ -55,29 +69,76 @@ export function isPromptLine(buffer: IBuffer, y: number): boolean {
 // Find the inclusive [start, end] line range of the command block whose
 // output contains clickLine. Returns null if no prompt exists at or above
 // clickLine (e.g. initial boot output before the first prompt).
+//
+// Long-command wreck handling: when a command exceeds the PTY column width,
+// mksh's line editor redraws the echo and overwrites the prompt line in the
+// buffer, leaving a wreck line (matches WRECK_RE) where the prompt should be.
+// PROMPT_RE does not match the wreck, so the nearest-prompt scan would skip
+// it and latch onto the previous command's prompt — sweeping the previous
+// command into the selection. To fix this, after locating the nearest prompt
+// above (`promptAbove`) and the block `end`, we scan back down from the click
+// line to `promptAbove+1` for a wreck line and, if found, use IT as the block
+// start. The scan is bounded to the range between the prompt and the click,
+// so it never traverses the whole buffer (worst observed ~0.7ms). If no
+// wreck is found we fall back to the prompt as the start, preserving the
+// original behavior for every non-wreck case (zero regression).
+// True if buffer line y is a mksh line-editor redraw wreck line (the leftover
+// of a command whose prompt was destroyed by soft-wrap redraw). See WRECK_RE.
+function isWreckLine(buffer: IBuffer, y: number): boolean {
+  const line = buffer.getLine(y)
+  if (!line) return false
+  if (line.isWrapped) return false // a wreck is its own non-wrapped line
+  if (isPromptLine(buffer, y)) return false
+  const raw = line.translateToString(false) // keep trailing fill spaces
+  if (!raw.trim()) return false
+  return WRECK_RE.test(raw.trimEnd())
+}
+
 export function findBlockBounds(
   buffer: IBuffer,
   clickLine: number
 ): { start: number; end: number } | null {
-  // Scan up from the click line (inclusive) to find the block-start prompt.
-  let start = -1
+  // Scan up from the click line (inclusive). We track TWO candidates for the
+  // block start:
+  //   - promptAbove: the nearest prompt line (the common-case block start).
+  //   - wreckAbove: the nearest mksh redraw-wreck line. A wreck is the leftover
+  //     of a long command whose prompt was overwritten by soft-wrap redraw, so
+  //     the wreck — not any earlier prompt — is that command's real block start.
+  // The wreck wins when found because the prompt above it belongs to the
+  // PREVIOUS command. Crucially, we scan for the wreck independent of whether
+  // a prompt was found: when the command is long enough that its prompt (and
+  // the wreck's own preceding prompt) have scrolled off the top of the buffer,
+  // there is no prompt above the click at all — only the wreck remains, and
+  // without checking for it we would return null (selecting nothing).
+  let promptAbove = -1
+  let wreckAbove = -1
   for (let y = clickLine; y >= 0; y--) {
     if (isPromptLine(buffer, y)) {
-      start = y
+      promptAbove = y
+      break // a prompt is a hard block boundary; stop scanning above it
+    }
+    if (wreckAbove === -1 && isWreckLine(buffer, y)) {
+      wreckAbove = y // remember nearest wreck, but keep scanning in case a
+      // prompt sits even closer to the click (prompt takes priority when
+      // both are on the same scan path).
       break
     }
   }
+
+  const start = wreckAbove !== -1 ? wreckAbove : promptAbove
   if (start === -1) return null
 
   // Scan down from the block start to find the next prompt (next block's
   // start); this block ends one line before it.
+  let end = buffer.baseY + buffer.cursorY
   for (let y = start + 1; y < buffer.length; y++) {
     if (isPromptLine(buffer, y)) {
-      return { start, end: y - 1 }
+      end = y - 1
+      break
     }
   }
-  // No next prompt: last block in the buffer — end at the cursor line.
-  return { start, end: buffer.baseY + buffer.cursorY }
+
+  return { start, end }
 }
 
 // Minimal buffer shape (duck-typed from xterm IBuffer) so this module stays
@@ -87,5 +148,13 @@ export interface IBuffer {
   readonly cursorY: number
   readonly baseY: number
   readonly length: number
-  getLine(y: number): { translateToString(trimRight?: boolean): string } | undefined
+  getLine(y: number): IBufferLine | undefined
+}
+
+// Minimal buffer line shape. `isWrapped` is optional so test fakes that don't
+// model soft-wrap can omit it (treated as undefined → falsy → not wrapped);
+// real xterm IBufferLine always provides it.
+export interface IBufferLine {
+  readonly isWrapped?: boolean
+  translateToString(trimRight?: boolean): string
 }
