@@ -209,6 +209,7 @@
   "exportConfigFailed": "导出配置失败: {{error}}",
   "txtpbFile": "Perfetto 配置文件",
   "exportBoottrace": "导出开机配置",
+  "copyCommand": "复制命令",
   "pbtxtFile": "Perfetto 开机配置文件",
   "boottraceExported": "开机配置已导出至 {{path}}",
   "boottracePushed": "已推送至设备并设置 persist.debug.perfetto.boottrace=1，请重启设备触发开机抓取",

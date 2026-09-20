@@ -76,6 +76,10 @@ export const TRACE_TEMPLATE_DEFAULT_EVENTS: Record<
 
 export class Perfetto {
   outputPath = '~/traces/trace_file.perfetto-trace'
+  // Device-side path for the on-device `perfetto` short-command preview. Kept
+  // separate from `outputPath` (a host path) so the generated `-o` argument
+  // points at a writable location on the device.
+  cliOutputPath = '/data/misc/perfetto-traces/trace_file.perfetto-trace'
   timeValue = 10
   bufferValue = 64
   selectedEvents: string[] = [...DEFAULT_EVENTS]
@@ -91,6 +95,7 @@ export class Perfetto {
   constructor() {
     makeObservable(this, {
       outputPath: observable,
+      cliOutputPath: observable,
       timeValue: observable,
       bufferValue: observable,
       selectedEvents: observable,
@@ -120,6 +125,7 @@ export class Perfetto {
   async init() {
     const names = [
       'outputPath',
+      'cliOutputPath',
       'timeValue',
       'bufferValue',
       'selectedEvents',
@@ -238,6 +244,50 @@ export function composeTime(perfetto: Perfetto): string {
 }
 export function composeBuffer(perfetto: Perfetto): string {
   return `${perfetto.bufferValue}mb`
+}
+
+// Compose a self-contained on-device `perfetto` short-command the user can
+// paste into any terminal. This is a "quick capture" path, distinct from the
+// record_android_trace + txtpb main path; the product is leaner (no
+// process_stats / packages_list). Fidelity tier C: include -b, omit device
+// serial (-s), --background, --txt and browser/open flags. App filtering uses
+// the long `--app 'name'` form (matching record_android_trace's on-device
+// command); all-apps mode omits the flag entirely (atrace default = all apps,
+// and avoids the `-a*` bash glob pitfall). Returns an empty string when no
+// events are selected.
+export function composeCliCommand(perfetto: Perfetto): string {
+  const events = [
+    ...perfetto.selectedEvents,
+    ...perfetto.additionalEvents
+      .split(/[,\n]/)
+      .map((e) => e.trim())
+      .filter(Boolean),
+  ]
+  if (events.length === 0) return ''
+
+  const parts: string[] = [
+    'adb',
+    'shell',
+    'perfetto',
+    '-o',
+    perfetto.cliOutputPath,
+    '-t',
+    composeTime(perfetto),
+    '-b',
+    composeBuffer(perfetto),
+  ]
+
+  if (perfetto.traceAllApps) {
+    // "Trace all apps" maps to the wildcard short form. Verified on-device:
+    // `-a*` captures all apps' atrace, while `--app '*'` does NOT. Wrapped in
+    // single quotes so the shell does not glob-expand `*` when pasted.
+    parts.push("'-a*'")
+  } else if (perfetto.app.trim()) {
+    parts.push('--app', `'${perfetto.app.trim()}'`)
+  }
+
+  parts.push(...events)
+  return parts.join(' ')
 }
 
 export const ALL_ATRACE_CATEGORIES = [
