@@ -104,11 +104,13 @@
 /* Side-by-side export + boottrace-export buttons. */
 .exportRow {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 
   .exportBtn {
     margin-top: 6px;
     flex: 1;
+    min-width: 80px;
   }
 }
 

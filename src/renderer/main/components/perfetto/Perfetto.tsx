@@ -16,8 +16,11 @@ import {
   PerfettoTraceTemplate,
   composeTime,
   composeBuffer,
+  composeCliCommand,
 } from '../../store/perfetto'
 import { IPerfettoTraceConfig } from 'common/types'
+import copy from 'licia/copy'
+import { notify } from 'share/renderer/lib/util'
 
 const TEMPLATE_LABEL_KEY: Record<PerfettoTraceTemplate, string> = {
   DEFAULT: 'defaultTemplate',
@@ -184,9 +187,22 @@ export default observer(function Perfetto() {
       perfetto.addLog(
         `✓ ${t('exportConfigSuccess', { path: result.filePath })}\n`,
       )
+      // Developer usage hints: the commands to run this config on a device.
+      const name = result.filePath.split(/[\\/]/).pop() || 'config.txtpb'
+      perfetto.addLog(`  adb push ${name} /data/misc/perfetto-configs/${name}\n`)
+      perfetto.addLog(
+        `  adb shell perfetto --txt -c /data/misc/perfetto-configs/${name} -o /data/misc/perfetto-traces/trace.perfetto-trace\n`,
+      )
     } catch (err: any) {
       perfetto.addLog(`✗ ${t('exportConfigFailed', { error: err.message })}\n`)
     }
+  }
+
+  function handleCopyCliCommand() {
+    const cmd = composeCliCommand(perfetto)
+    if (!cmd) return
+    copy(cmd)
+    notify(t('copied'), { icon: 'info' })
   }
 
   async function handleExportBoottrace() {
@@ -207,6 +223,17 @@ export default observer(function Perfetto() {
       )
       perfetto.addLog(
         `✓ ${t('boottraceExported', { path: result.filePath })}\n`,
+      )
+      // Developer usage hints: the commands to push and enable boot tracing.
+      const name = result.filePath.split(/[\\/]/).pop() || 'boottrace.pbtxt'
+      perfetto.addLog(
+        `  adb push ${name} /data/misc/perfetto-configs/${name}\n`,
+      )
+      perfetto.addLog(
+        `  adb shell setprop persist.debug.perfetto.boottrace 1\n`,
+      )
+      perfetto.addLog(
+        `  adb shell getprop persist.debug.perfetto.boottrace\n`,
       )
       if (!res.pushed) {
         perfetto.addLog(
@@ -323,6 +350,13 @@ export default observer(function Perfetto() {
                   disabled={isRecording}
                 >
                   {t('exportBoottrace')}
+                </button>
+                <button
+                  className={Style.exportBtn}
+                  onClick={handleCopyCliCommand}
+                  disabled={isRecording || !composeCliCommand(perfetto)}
+                >
+                  {t('copyCommand')}
                 </button>
               </div>
             </div>

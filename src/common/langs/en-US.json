@@ -209,6 +209,7 @@
   "exportConfigFailed": "Export failed: {{error}}",
   "txtpbFile": "Perfetto Config File",
   "exportBoottrace": "Export Boot Config",
+  "copyCommand": "Copy Command",
   "pbtxtFile": "Perfetto Boot Config File",
   "boottraceExported": "Boot config exported to {{path}}",
   "boottracePushed": "Pushed to device and set persist.debug.perfetto.boottrace=1. Reboot the device to trigger boot tracing.",
