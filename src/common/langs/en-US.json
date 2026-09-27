@@ -235,6 +235,7 @@
   "grpPower": "Power & Thermal",
   "grpNetwork": "Network & ADB",
   "clear": "Clear",
+  "shellDisconnected": "Device disconnected, reconnecting…",
   "gnirehtet": "Gnirehtet",
   "gnirehtetTitle": "Gnirehtet Reverse Tethering",
   "gnirehtetDesc": "Provides reverse tethering over adb to allow devices to use the internet connection of the computer.",

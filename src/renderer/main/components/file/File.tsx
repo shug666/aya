@@ -37,11 +37,13 @@ export default observer(function File() {
   const [selectedUrl, setSelectedUrl] = useState<string>('')
   const draggingRef = useRef(0)
 
-  const { device, file } = store
+  const { device, file, activeDevice } = store
 
   useEffect(() => {
     go('/')
-  }, [])
+    // 依赖 activeDevice：blip 时 activeDevice 不变（恒为 A）不重读，
+    // 保留当前目录树；切设备 A→B 时 activeDevice 变，重置到根读 B 目录。
+  }, [activeDevice?.id])
 
   async function getFiles(path: string) {
     if (device) {

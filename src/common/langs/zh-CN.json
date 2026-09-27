@@ -235,6 +235,7 @@
   "grpPower": "电源与温控",
   "grpNetwork": "网络与 ADB",
   "clear": "清空",
+  "shellDisconnected": "设备已断开，等待重连…",
   "gnirehtet": "反向网络",
   "gnirehtetTitle": "反向网络供给",
   "gnirehtetDesc": "通过 ADB 将电脑的网络连接反向共享给移动设备使用。",

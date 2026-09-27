@@ -27,20 +27,22 @@ export default observer(function Overview() {
   >({})
   const [fontAdjustModalVisible, setFontAdjustModalVisible] = useState(false)
 
-  const { device } = store
+  const { device, activeDevice } = store
 
   useEffect(() => {
     refresh()
-  }, [])
+    // 依赖 activeDevice：blip 时 activeDevice 不变不重取（保留内容），
+    // 切设备时 activeDevice 变（A→B）触发重取新设备数据。
+  }, [activeDevice?.id])
 
   async function refresh() {
-    if (!device || isLoading) {
+    if (!activeDevice || isLoading) {
       return
     }
 
     try {
       setIsLoading(true)
-      const overview = await main.getOverview(device.id)
+      const overview = await main.getOverview(activeDevice.id)
       setOverview(overview)
     } catch {
       notify(t('commonErr'), { icon: 'error' })
@@ -51,7 +53,7 @@ export default observer(function Overview() {
 
   let content: JSX.Element | null = null
 
-  if (!device) {
+  if (!activeDevice) {
     content = (
       <div className={className('panel-body', Style.container)}>
         {t('deviceNotConnected')}
@@ -71,7 +73,7 @@ export default observer(function Overview() {
           {item(t('serialno'), overview.serialno, 'serial-number')}
           {item(
             t('androidVersion'),
-            `Android ${device.androidVersion} (API ${device.sdkVersion})`,
+            `Android ${activeDevice.androidVersion} (API ${activeDevice.sdkVersion})`,
             'android'
           )}
           {item(t('kernelVersion'), overview.kernelVersion, 'android')}

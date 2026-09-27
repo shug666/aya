@@ -104,6 +104,8 @@ export default observer(function Logcat() {
     return () => panel.removeEventListener('wheel', onWheel)
   }, [])
 
+  // 日志条目监听：挂载一次，靠 logcatIdRef 过滤当前流，跨重连复用，无需重绑
+  // （同 Term 的 sessionIdRef 零重绑模式）。
   useEffect(() => {
     function onLogcatEntry(id, entry) {
       if (logcatIdRef.current !== id) {
@@ -115,19 +117,33 @@ export default observer(function Logcat() {
       }
     }
     const offLogcatEntry = main.on('logcatEntry', onLogcatEntry)
-    if (device) {
-      main.openLogcat(device.id).then((id) => {
-        logcatIdRef.current = id
-      })
-    }
-
     return () => {
       offLogcatEntry()
-      if (logcatIdRef.current) {
-        main.closeLogcat(logcatIdRef.current)
-      }
     }
   }, [])
+
+  // openLogcat 流随设备断开而死亡，且主进程不发 close 事件。以 device（真实
+  // 连接状态）为键：blip A→null→A 时，null 瞬间关闭旧流、恢复后重开新流；
+  // entriesRef 不清零，历史条目保留，新日志续接到既有缓冲之后。面板容器
+  // key 已改为 activeDevice，blip 不卸载本组件，故此 effect 的重连得以运行。
+  useEffect(() => {
+    if (!device) {
+      return
+    }
+    let cancelled = false
+    main.openLogcat(device.id).then((id) => {
+      if (!cancelled) {
+        logcatIdRef.current = id
+      }
+    })
+    return () => {
+      cancelled = true
+      if (logcatIdRef.current) {
+        main.closeLogcat(logcatIdRef.current)
+        logcatIdRef.current = ''
+      }
+    }
+  }, [device])
 
   if (store.panel !== 'logcat') {
     if (!paused && logcatIdRef.current) {

@@ -51,10 +51,7 @@ export default observer(function App() {
               {t('noTabsEnabled')}
             </div>
           ) : (
-            <div
-              className={Style.panels}
-              key={store.device ? store.device.id : ''}
-            >
+            <div className={Style.panels}>
               {map(visiblePanels, (panel) => {
                 const Component = panelComponents[panel.id]
                 if (!Component) return null
