@@ -114,6 +114,11 @@ export default observer(function Logcat() {
       if (logcatRef.current) {
         logcatRef.current.append(entry)
         entriesRef.current.push(entry)
+        // 镜像 maxNum 裁剪：与 luna-logcat 内部淘汰同节拍，防 entriesRef 无界增长，
+        // 使 save() 导出量与可见缓冲一致（不含早已被环形淘汰的远古日志）。
+        if (entriesRef.current.length > 10000) {
+          entriesRef.current.shift()
+        }
       }
     }
     const offLogcatEntry = main.on('logcatEntry', onLogcatEntry)
@@ -611,6 +616,7 @@ export default observer(function Logcat() {
       <LunaLogcat
         className="panel-body"
         maxNum={10000}
+        maxFilteredNum={100000}
         filter={filter as any}
         wrapLongLines={softWrap}
         fontSize={fontSize}

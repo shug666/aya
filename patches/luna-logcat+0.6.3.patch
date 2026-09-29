@@ -1,12 +1,13 @@
 diff --git a/node_modules/luna-logcat/cjs/logcat/index.d.ts b/node_modules/luna-logcat/cjs/logcat/index.d.ts
-index 6aec436..e37a7ae 100644
+index 6aec436..0a0953b 100644
 --- a/node_modules/luna-logcat/cjs/logcat/index.d.ts
 +++ b/node_modules/luna-logcat/cjs/logcat/index.d.ts
-@@ -5,11 +5,13 @@ export interface IOptions extends IComponentOptions {
+@@ -5,11 +5,14 @@ export interface IOptions extends IComponentOptions {
      entries?: IEntry[];
      view?: 'standard' | 'compact';
      wrapLongLines?: boolean;
 +    fontSize?: number;
++    maxFilteredNum?: number;
  }
  export interface IFilter {
      priority?: number;
@@ -17,21 +18,42 @@ index 6aec436..e37a7ae 100644
  interface IBaseEntry {
      package: string;
 diff --git a/node_modules/luna-logcat/cjs/logcat/index.js b/node_modules/luna-logcat/cjs/logcat/index.js
-index d8c399d..3ee8268 100644
+index d8c399d..ab68d61 100644
 --- a/node_modules/luna-logcat/cjs/logcat/index.js
 +++ b/node_modules/luna-logcat/cjs/logcat/index.js
-@@ -68,7 +68,10 @@ var Logcat = (function (_super) {
+@@ -68,7 +68,11 @@ var Logcat = (function (_super) {
              view: 'standard',
              entries: [],
              wrapLongLines: false,
 +            fontSize: 13,
++            maxFilteredNum: 100000,
          });
 +        // 崩溃会话识别状态（is:crash 跨条关联，模型 B：entry 预标记）
 +        _this.activeCrashSession = null; // { pid, tag, sessionId, nonStackCount }
          _this.resizeSensor = new ResizeSensor_1.default(container);
          _this.initTpl();
          _this.virtualList = new luna_virtual_list_1.default(_this.find('.virtual-list').get(0), { autoScroll: true });
-@@ -115,11 +118,91 @@ var Logcat = (function (_super) {
+@@ -102,23 +106,117 @@ var Logcat = (function (_super) {
+         container.setAttribute('data-idx', String(e.idx));
+         entries.push(e);
+         var _b = this.options, maxNum = _b.maxNum, view = _b.view;
++        // 过滤激活时锚定：原始缓冲淘汰不牵连已匹配条目（displayEntries 与 entries 解耦）。
++        var hasFilter = !!this.options.filter;
+         if (maxNum !== 0 && entries.length >= maxNum + this.removeThreshold) {
+             for (var i = 0; i < this.removeThreshold; i++) {
+                 var entry_1 = entries.shift();
+                 if (entry_1) {
+                     if (displayEntries[0] === entry_1) {
+-                        displayEntries.shift();
+-                        this.virtualList.remove(entry_1.container);
++                        // 未过滤：维持原有同步淘汰；过滤激活：锚定，不移除 displayEntries。
++                        if (!hasFilter) {
++                            displayEntries.shift();
++                            this.virtualList.remove(entry_1.container);
++                        }
+                     }
+                 }
+             }
          }
          container.innerHTML =
              view === 'standard' ? this.formatStandard(e) : this.formatCompact(e);
@@ -41,7 +63,16 @@ index d8c399d..3ee8268 100644
              this.displayEntries.push(e);
              this.virtualList.append(container);
          }
-     };
++        // 匹配集上限（maxFilteredNum，默认 100000）：锚定后匹配集可能涨过 maxNum，
++        // 触顶丢最老匹配，继续接新匹配，保实时尾随。mf<=0 视作无上限。窄过滤永不触顶 → 永不丢。
++        var mf = this.options.maxFilteredNum;
++        if (mf > 0 && this.displayEntries.length > mf) {
++            var oldest = this.displayEntries.shift();
++            if (oldest) {
++                this.virtualList.remove(oldest.container);
++            }
++        }
++    };
 +    // Java 堆栈文本特征（is:stacktrace 逐条识别）
 +    Logcat.prototype._isStackTraceText = function (message) {
 +        var msg = message || '';
@@ -119,11 +150,10 @@ index d8c399d..3ee8268 100644
 +            return;
 +        }
 +        // 不在会话内且非头：无标记
-+    };
+     };
      Logcat.prototype.clear = function () {
          this.entries = [];
-         this.virtualList.clear();
-@@ -144,23 +227,118 @@ var Logcat = (function (_super) {
+@@ -144,23 +242,118 @@ var Logcat = (function (_super) {
          var selection = window.getSelection();
          return selection ? selection.toString() : '';
      };
@@ -232,17 +262,17 @@ index d8c399d..3ee8268 100644
          }
 -        if (filter.priority && entry.priority < filter.priority) {
 -            return false;
-+        var ast = this._filterAst;
-+        if (ast) {
-+            // 有预编译单根 AST：整条复合查询求值
-+            return this._evalAst(ast, entry);
-         }
+-        }
 -        var pkg = (0, trim_1.default)(filter.package || '');
 -        if (pkg) {
 -            if (!(0, contain_1.default)((0, lowerCase_1.default)(entry.package), (0, lowerCase_1.default)(pkg))) {
 -                return false;
 -            }
--        }
++        var ast = this._filterAst;
++        if (ast) {
++            // 有预编译单根 AST：整条复合查询求值
++            return this._evalAst(ast, entry);
+         }
 -        var tag = (0, trim_1.default)(filter.tag || '');
 -        if (tag) {
 -            if (!(0, contain_1.default)((0, lowerCase_1.default)(entry.tag), (0, lowerCase_1.default)(tag))) {
@@ -253,7 +283,7 @@ index d8c399d..3ee8268 100644
                  return false;
              }
          }
-@@ -185,6 +363,10 @@ var Logcat = (function (_super) {
+@@ -185,6 +378,10 @@ var Logcat = (function (_super) {
                      }
                      _this.virtualList.update();
                      break;
@@ -264,7 +294,7 @@ index d8c399d..3ee8268 100644
                  case 'maxNum':
                      if (val > 0 && entries.length > val) {
                          _this.entries = entries.slice(entries.length - val);
-@@ -215,8 +397,19 @@ var Logcat = (function (_super) {
+@@ -215,8 +412,23 @@ var Logcat = (function (_super) {
          this.$container
              .on('contextmenu', c('.entry'), function (e) {
              e.stopPropagation();
@@ -272,11 +302,15 @@ index d8c399d..3ee8268 100644
 -            var entry = self.entries[(0, toNum_1.default)(idx)];
 +            var idx = (0, toNum_1.default)((0, _1.default)(this).data('idx'));
 +            // idx 是 entry 创建时的快照序号，buffer 淘汰 shift() 后数组下标与 idx 错位，
-+            // 不能用 entries[idx] 下标查（会越界→undefined→omit 炸）。按 idx 值线性查当前存活 entries。
++            // 不能用 entries[idx] 下标查（会越界→undefined→omit 炸）。按 idx 值线性查当前存活条目。
++            // 过滤激活时锚定匹配的源可能已滚出 entries（orphan），改在 displayEntries
++            // （entries 匹配项 + orphan 的并集 = 右键可见条目全集）里查；未过滤维持 entries 查找。
++            var hasFilter = !!self.options.filter;
++            var pool = hasFilter ? self.displayEntries : self.entries;
 +            var entry = null;
-+            for (var i = 0, len = self.entries.length; i < len; i++) {
-+                if (self.entries[i].idx === idx) {
-+                    entry = self.entries[i];
++            for (var i = 0, len = pool.length; i < len; i++) {
++                if (pool[i].idx === idx) {
++                    entry = pool[i];
 +                    break;
 +                }
 +            }
@@ -287,7 +321,7 @@ index d8c399d..3ee8268 100644
                  return key === 'container' || key === 'idx';
              }));
 diff --git a/node_modules/luna-logcat/cjs/logcat/react.js b/node_modules/luna-logcat/cjs/logcat/react.js
-index 5538630..c85186f 100644
+index 5538630..ea7f342 100644
 --- a/node_modules/luna-logcat/cjs/logcat/react.js
 +++ b/node_modules/luna-logcat/cjs/logcat/react.js
 @@ -13,7 +13,7 @@ var LunaLogcat = function (props) {
@@ -295,34 +329,36 @@ index 5538630..c85186f 100644
      var prevProps = (0, hooks_1.usePrevious)(props);
      (0, react_1.useEffect)(function () {
 -        var theme = props.theme, maxNum = props.maxNum, wrapLongLines = props.wrapLongLines, filter = props.filter, entries = props.entries, view = props.view;
-+        var theme = props.theme, maxNum = props.maxNum, wrapLongLines = props.wrapLongLines, filter = props.filter, entries = props.entries, view = props.view, fontSize = props.fontSize;
++        var theme = props.theme, maxNum = props.maxNum, wrapLongLines = props.wrapLongLines, filter = props.filter, entries = props.entries, view = props.view, fontSize = props.fontSize, maxFilteredNum = props.maxFilteredNum;
          logcat.current = new index_1.default(logcatRef.current, {
              theme: theme,
              filter: filter,
-@@ -21,12 +21,13 @@ var LunaLogcat = function (props) {
+@@ -21,12 +21,14 @@ var LunaLogcat = function (props) {
              wrapLongLines: wrapLongLines,
              entries: entries,
              view: view,
 +            fontSize: fontSize,
++            maxFilteredNum: maxFilteredNum,
          });
          props.onCreate && props.onCreate(logcat.current);
          return function () { var _a; return (_a = logcat.current) === null || _a === void 0 ? void 0 : _a.destroy(); };
      }, []);
      (0, hooks_1.useEvent)(logcat, 'contextmenu', prevProps === null || prevProps === void 0 ? void 0 : prevProps.onContextMenu, props.onContextMenu);
 -    (0, each_1.default)(['theme', 'filter', 'maxNum', 'wrapLongLines', 'view'], function (key) {
-+    (0, each_1.default)(['theme', 'filter', 'maxNum', 'wrapLongLines', 'view', 'fontSize'], function (key) {
++    (0, each_1.default)(['theme', 'filter', 'maxNum', 'wrapLongLines', 'view', 'fontSize', 'maxFilteredNum'], function (key) {
          (0, hooks_1.useOption)(logcat, key, props[key]);
      });
      return ((0, jsx_runtime_1.jsx)("div", { className: props.className || '', ref: logcatRef, style: props.style }));
 diff --git a/node_modules/luna-logcat/esm/logcat/index.d.ts b/node_modules/luna-logcat/esm/logcat/index.d.ts
-index 6aec436..e37a7ae 100644
+index 6aec436..0a0953b 100644
 --- a/node_modules/luna-logcat/esm/logcat/index.d.ts
 +++ b/node_modules/luna-logcat/esm/logcat/index.d.ts
-@@ -5,11 +5,13 @@ export interface IOptions extends IComponentOptions {
+@@ -5,11 +5,14 @@ export interface IOptions extends IComponentOptions {
      entries?: IEntry[];
      view?: 'standard' | 'compact';
      wrapLongLines?: boolean;
 +    fontSize?: number;
++    maxFilteredNum?: number;
  }
  export interface IFilter {
      priority?: number;
@@ -333,21 +369,42 @@ index 6aec436..e37a7ae 100644
  interface IBaseEntry {
      package: string;
 diff --git a/node_modules/luna-logcat/esm/logcat/index.js b/node_modules/luna-logcat/esm/logcat/index.js
-index 6fa9923..5ffafb1 100644
+index 6fa9923..78c70b1 100644
 --- a/node_modules/luna-logcat/esm/logcat/index.js
 +++ b/node_modules/luna-logcat/esm/logcat/index.js
-@@ -35,7 +35,10 @@ export default class Logcat extends Component {
+@@ -35,7 +35,11 @@ export default class Logcat extends Component {
              view: 'standard',
              entries: [],
              wrapLongLines: false,
 +            fontSize: 13,
++            maxFilteredNum: 100000,
          });
 +        // 崩溃会话识别状态（is:crash 跨条关联，模型 B：entry 预标记）
 +        this.activeCrashSession = null; // { pid, tag, sessionId, nonStackCount }
          this.resizeSensor = new ResizeSensor(container);
          this.initTpl();
          this.virtualList = new LunaVirtualList(this.find('.virtual-list').get(0), { autoScroll: true });
-@@ -86,11 +89,85 @@ export default class Logcat extends Component {
+@@ -73,23 +77,111 @@ export default class Logcat extends Component {
+         container.setAttribute('data-idx', String(e.idx));
+         entries.push(e);
+         const { maxNum, view } = this.options;
++        // 过滤激活时锚定：原始缓冲淘汰不牵连已匹配条目（displayEntries 与 entries 解耦）。
++        const hasFilter = !!this.options.filter;
+         if (maxNum !== 0 && entries.length >= maxNum + this.removeThreshold) {
+             for (let i = 0; i < this.removeThreshold; i++) {
+                 const entry = entries.shift();
+                 if (entry) {
+                     if (displayEntries[0] === entry) {
+-                        displayEntries.shift();
+-                        this.virtualList.remove(entry.container);
++                        // 未过滤：维持原有同步淘汰；过滤激活：锚定，不移除 displayEntries。
++                        if (!hasFilter) {
++                            displayEntries.shift();
++                            this.virtualList.remove(entry.container);
++                        }
+                     }
+                 }
+             }
          }
          container.innerHTML =
              view === 'standard' ? this.formatStandard(e) : this.formatCompact(e);
@@ -357,7 +414,16 @@ index 6fa9923..5ffafb1 100644
              this.displayEntries.push(e);
              this.virtualList.append(container);
          }
-     }
++        // 匹配集上限（maxFilteredNum，默认 100000）：锚定后匹配集可能涨过 maxNum，
++        // 触顶丢最老匹配，继续接新匹配，保实时尾随。mf<=0 视作无上限。窄过滤永不触顶 → 永不丢。
++        const mf = this.options.maxFilteredNum;
++        if (mf > 0 && this.displayEntries.length > mf) {
++            const oldest = this.displayEntries.shift();
++            if (oldest) {
++                this.virtualList.remove(oldest.container);
++            }
++        }
++    }
 +    // Java 堆栈文本特征（is:stacktrace 逐条识别）
 +    _isStackTraceText(message) {
 +        const msg = message || '';
@@ -429,11 +495,10 @@ index 6fa9923..5ffafb1 100644
 +            }
 +            return;
 +        }
-+    }
+     }
      clear() {
          this.entries = [];
-         this.virtualList.clear();
-@@ -115,23 +192,113 @@ export default class Logcat extends Component {
+@@ -115,23 +207,113 @@ export default class Logcat extends Component {
          const selection = window.getSelection();
          return selection ? selection.toString() : '';
      }
@@ -538,16 +603,16 @@ index 6fa9923..5ffafb1 100644
          }
 -        if (filter.priority && entry.priority < filter.priority) {
 -            return false;
-+        const ast = this._filterAst;
-+        if (ast) {
-+            return this._evalAst(ast, entry);
-         }
+-        }
 -        const pkg = trim(filter.package || '');
 -        if (pkg) {
 -            if (!contain(lowerCase(entry.package), lowerCase(pkg))) {
 -                return false;
 -            }
--        }
++        const ast = this._filterAst;
++        if (ast) {
++            return this._evalAst(ast, entry);
+         }
 -        const tag = trim(filter.tag || '');
 -        if (tag) {
 -            if (!contain(lowerCase(entry.tag), lowerCase(tag))) {
@@ -558,7 +623,7 @@ index 6fa9923..5ffafb1 100644
                  return false;
              }
          }
-@@ -155,6 +322,10 @@ export default class Logcat extends Component {
+@@ -155,6 +337,10 @@ export default class Logcat extends Component {
                      }
                      this.virtualList.update();
                      break;
@@ -569,7 +634,7 @@ index 6fa9923..5ffafb1 100644
                  case 'maxNum':
                      if (val > 0 && entries.length > val) {
                          this.entries = entries.slice(entries.length - val);
-@@ -185,8 +356,19 @@ export default class Logcat extends Component {
+@@ -185,8 +371,23 @@ export default class Logcat extends Component {
          this.$container
              .on('contextmenu', c('.entry'), function (e) {
              e.stopPropagation();
@@ -577,11 +642,15 @@ index 6fa9923..5ffafb1 100644
 -            const entry = self.entries[toNum(idx)];
 +            const idx = toNum($(this).data('idx'));
 +            // idx 是 entry 创建时的快照序号，buffer 淘汰 shift() 后数组下标与 idx 错位，
-+            // 不能用 entries[idx] 下标查（会越界→undefined→omit 炸）。按 idx 值线性查当前存活 entries。
++            // 不能用 entries[idx] 下标查（会越界→undefined→omit 炸）。按 idx 值线性查当前存活条目。
++            // 过滤激活时锚定匹配的源可能已滚出 entries（orphan），改在 displayEntries
++            // （entries 匹配项 + orphan 的并集 = 右键可见条目全集）里查；未过滤维持 entries 查找。
++            const hasFilter = !!self.options.filter;
++            const pool = hasFilter ? self.displayEntries : self.entries;
 +            let entry = null;
-+            for (let i = 0, len = self.entries.length; i < len; i++) {
-+                if (self.entries[i].idx === idx) {
-+                    entry = self.entries[i];
++            for (let i = 0, len = pool.length; i < len; i++) {
++                if (pool[i].idx === idx) {
++                    entry = pool[i];
 +                    break;
 +                }
 +            }
@@ -592,7 +661,7 @@ index 6fa9923..5ffafb1 100644
                  return key === 'container' || key === 'idx';
              }));
 diff --git a/node_modules/luna-logcat/esm/logcat/react.js b/node_modules/luna-logcat/esm/logcat/react.js
-index a1e00e7..20585c3 100644
+index a1e00e7..d40efb3 100644
 --- a/node_modules/luna-logcat/esm/logcat/react.js
 +++ b/node_modules/luna-logcat/esm/logcat/react.js
 @@ -8,7 +8,7 @@ const LunaLogcat = (props) => {
@@ -600,22 +669,23 @@ index a1e00e7..20585c3 100644
      const prevProps = usePrevious(props);
      useEffect(() => {
 -        const { theme, maxNum, wrapLongLines, filter, entries, view } = props;
-+        const { theme, maxNum, wrapLongLines, filter, entries, view, fontSize } = props;
++        const { theme, maxNum, wrapLongLines, filter, entries, view, fontSize, maxFilteredNum } = props;
          logcat.current = new Logcat(logcatRef.current, {
              theme,
              filter,
-@@ -16,12 +16,13 @@ const LunaLogcat = (props) => {
+@@ -16,12 +16,14 @@ const LunaLogcat = (props) => {
              wrapLongLines,
              entries,
              view,
 +            fontSize,
++            maxFilteredNum,
          });
          props.onCreate && props.onCreate(logcat.current);
          return () => logcat.current?.destroy();
      }, []);
      useEvent(logcat, 'contextmenu', prevProps?.onContextMenu, props.onContextMenu);
 -    each(['theme', 'filter', 'maxNum', 'wrapLongLines', 'view'], (key) => {
-+    each(['theme', 'filter', 'maxNum', 'wrapLongLines', 'view', 'fontSize'], (key) => {
++    each(['theme', 'filter', 'maxNum', 'wrapLongLines', 'view', 'fontSize', 'maxFilteredNum'], (key) => {
          useOption(logcat, key, props[key]);
      });
      return (_jsx("div", { className: props.className || '', ref: logcatRef, style: props.style }));
