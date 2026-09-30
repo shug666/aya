@@ -11,6 +11,10 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  // When atrace + probes + log exceed the window, scroll the whole panel
+  // instead of clipping individual regions. The atrace/probe region must stay
+  // fully laid out (never its own scroll), so the panel as a whole scrolls.
+  overflow-y: auto;
 }
 
 /* ---- shared field typography ---- */
@@ -167,8 +171,10 @@
 
 /* ---- main two-column area ---- */
 .mainRow {
-  flex: 1;
-  min-height: 0;
+  // Atrace categories + ftrace probes are the priority: they lay out at their
+  // natural content height and never scroll on their own. The panel scrolls as
+  // a whole (see .content) when total height exceeds the window.
+  flex: 0 0 auto;
   display: flex;
   gap: 12px;
 }
@@ -216,8 +222,25 @@
 }
 
 .groupsScroll {
-  flex: 1;
-  overflow-y: auto;
+  // Lay out atrace cards at natural height — never scroll here. The probes
+  // region sits right below, and the whole panel scrolls if needed.
+  padding-right: 2px;
+}
+
+.probesHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  margin-bottom: 6px;
+
+  .fieldLabel {
+    margin-bottom: 0;
+  }
+}
+
+.probesScroll {
+  // Lay out probe cards at natural height — never scroll here.
   padding-right: 2px;
 }
 
@@ -276,6 +299,39 @@
   gap: 3px 8px;
 }
 
+// Ftrace probe cards: labels are long (e.g. "粗粒度CPU使用率",
+// "Wi-Fi/网络 ftrace 事件") but should still lay out horizontally. The atrace
+// grid's 120px min column wrapped these mid-title, so use a wider min column
+// that fits the longest label on one line, with non-wrapping labels.
+.probeGroupBody {
+  padding: 5px 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 3px 8px;
+}
+
+.probeItem {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  padding: 2px 0;
+  cursor: pointer;
+  color: var(--color-text);
+
+  input[type='checkbox'] {
+    margin: 0;
+    flex: 0 0 auto;
+    cursor: pointer;
+  }
+
+  label {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+}
+
 .categoryItem {
   display: flex;
   align-items: center;
@@ -323,7 +379,9 @@
 
 /* ---- log output ---- */
 .logSection {
-  flex-shrink: 0;
+  // A larger, fixed log band that scrolls internally (the log itself scrolls,
+  // not the panel). Atrace/probes above always lay out fully first.
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
 }
@@ -361,7 +419,9 @@
 }
 
 .logContainer {
-  height: 130px;
+  // Larger fixed log area (was 130px) that scrolls internally. The atrace +
+  // probe region above is laid out fully first; this sits below it.
+  height: 280px;
   overflow-y: auto;
   border: 1px solid var(--color-border);
   border-radius: 4px;
