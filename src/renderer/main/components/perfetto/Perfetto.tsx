@@ -12,6 +12,8 @@ import className from 'licia/className'
 import {
   ALL_ATRACE_CATEGORIES,
   ATRACE_GROUPS,
+  FTRACE_PROBES,
+  FTRACE_PROBE_GROUPS,
   TRACE_TEMPLATES,
   PerfettoTraceTemplate,
   composeTime,
@@ -111,6 +113,7 @@ export default observer(function Perfetto() {
       app: perfetto.app,
       traceAllApps: perfetto.traceAllApps,
       noOpen: !perfetto.autoOpenBrowser,
+      probes: [...perfetto.selectedProbes],
     }
 
     try {
@@ -122,6 +125,9 @@ export default observer(function Perfetto() {
       perfetto.addLog(`Output: ${config.outputPath}\n`)
       perfetto.addLog(`Duration: ${config.time}, Buffer: ${config.buffer}\n`)
       perfetto.addLog(`Events: ${config.events.join(', ')}\n`)
+      if (config.probes && config.probes.length > 0) {
+        perfetto.addLog(`Probes: ${config.probes.join(', ')}\n`)
+      }
       if (additionalEvents.length > 0) {
         perfetto.addLog(`Additional: ${additionalEvents.join(', ')}\n`)
       }
@@ -169,6 +175,7 @@ export default observer(function Perfetto() {
       app: perfetto.app,
       traceAllApps: perfetto.traceAllApps,
       noOpen: !perfetto.autoOpenBrowser,
+      probes: [...perfetto.selectedProbes],
     }
   }
 
@@ -527,6 +534,81 @@ export default observer(function Perfetto() {
                           />
                           <label htmlFor={`atrace-${category}`}>
                             {category}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Ftrace Probes */}
+            <div className={Style.probesHeader}>
+              <span className={Style.fieldLabel}>{t('ftraceProbes')}</span>
+              <div className={Style.selectActions}>
+                <button
+                  className={Style.selectBtn}
+                  onClick={() => {
+                    if (
+                      perfetto.selectedProbes.length === FTRACE_PROBES.length
+                    ) {
+                      perfetto.clearAllProbes()
+                    } else {
+                      perfetto.setAllProbes()
+                    }
+                  }}
+                  disabled={isRecording}
+                >
+                  {perfetto.selectedProbes.length === FTRACE_PROBES.length
+                    ? t('deselectAll')
+                    : t('selectAll')}
+                </button>
+              </div>
+            </div>
+            <div className={Style.probesScroll}>
+              {FTRACE_PROBE_GROUPS.map((g) => {
+                const probes = FTRACE_PROBES.filter((p) => p.group === g.group)
+                const probeIds = probes.map((p) => p.id)
+                const allSelected = probeIds.every((id) =>
+                  perfetto.selectedProbes.includes(id),
+                )
+                const hasSelected = probeIds.some((id) =>
+                  perfetto.selectedProbes.includes(id),
+                )
+                return (
+                  <div key={g.key} className={Style.groupCard}>
+                    <div className={Style.groupHeader}>
+                      <span>{t(g.key)}</span>
+                      <div className={Style.groupActions}>
+                        <button
+                          className={Style.selectBtn}
+                          onClick={() => perfetto.setGroupProbes(probeIds)}
+                          disabled={isRecording || allSelected}
+                        >
+                          {t('selectAll')}
+                        </button>
+                        <button
+                          className={Style.selectBtn}
+                          onClick={() => perfetto.clearGroupProbes(probeIds)}
+                          disabled={isRecording || !hasSelected}
+                        >
+                          {t('clear')}
+                        </button>
+                      </div>
+                    </div>
+                    <div className={Style.probeGroupBody}>
+                      {probes.map((probe) => (
+                        <div key={probe.id} className={Style.probeItem}>
+                          <input
+                            type="checkbox"
+                            id={`probe-${probe.id}`}
+                            checked={perfetto.selectedProbes.includes(probe.id)}
+                            onChange={() => perfetto.toggleProbe(probe.id)}
+                            disabled={isRecording}
+                          />
+                          <label htmlFor={`probe-${probe.id}`}>
+                            {t(probe.titleKey)}
                           </label>
                         </div>
                       ))}

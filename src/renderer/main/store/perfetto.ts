@@ -74,6 +74,25 @@ export const TRACE_TEMPLATE_DEFAULT_EVENTS: Record<
   MEMORY_PROFILE: ['memory', 'memreclaim', 'am', 'dalvik', 'sched'],
 }
 
+// Preset ftrace probe bundles per trace template. A template fully defines
+// the capture config: its atrace categories AND its probes, so the panel state
+// (Atrace checkboxes + Ftrace Probes checkboxes) always matches what a
+// capture/export of that template produces. The CPU base (sched + freq +
+// usage) mirrors the official Perfetto "Default" preset; GFX adds the GPU
+// probe and MEMORY adds the memory probes. CUSTOM keeps the user's selection.
+const CPU_BASE_PROBES = ['cpu_sched', 'cpu_freq', 'cpu_usage']
+export const TRACE_TEMPLATE_DEFAULT_PROBES: Record<
+  Exclude<PerfettoTraceTemplate, 'CUSTOM'>,
+  string[]
+> = {
+  DEFAULT: [...CPU_BASE_PROBES],
+  SYSTEM_OVERVIEW: [...CPU_BASE_PROBES],
+  APP_PERFORMANCE: [...CPU_BASE_PROBES],
+  GFX_PIPELINE: [...CPU_BASE_PROBES, 'gpu_frequency'],
+  INPUT_LATENCY: [...CPU_BASE_PROBES],
+  MEMORY_PROFILE: [...CPU_BASE_PROBES, 'mem_hifreq', 'mem_lmk'],
+}
+
 export class Perfetto {
   outputPath = '~/traces/trace_file.perfetto-trace'
   // Device-side path for the on-device `perfetto` short-command preview. Kept
@@ -83,6 +102,7 @@ export class Perfetto {
   timeValue = 10
   bufferValue = 64
   selectedEvents: string[] = [...DEFAULT_EVENTS]
+  selectedProbes: string[] = [...DEFAULT_PROBES]
   traceAllApps = true
   app = ''
   autoOpenBrowser = true
@@ -99,6 +119,7 @@ export class Perfetto {
       timeValue: observable,
       bufferValue: observable,
       selectedEvents: observable,
+      selectedProbes: observable,
       traceAllApps: observable,
       app: observable,
       autoOpenBrowser: observable,
@@ -118,6 +139,11 @@ export class Perfetto {
       setTemplate: action,
       setGroupEvents: action,
       clearGroupEvents: action,
+      toggleProbe: action,
+      setAllProbes: action,
+      clearAllProbes: action,
+      setGroupProbes: action,
+      clearGroupProbes: action,
     })
 
     this.init()
@@ -129,6 +155,7 @@ export class Perfetto {
       'timeValue',
       'bufferValue',
       'selectedEvents',
+      'selectedProbes',
       'traceAllApps',
       'app',
       'autoOpenBrowser',
@@ -200,10 +227,14 @@ export class Perfetto {
   setTemplate(template: PerfettoTraceTemplate) {
     this.selectedTemplate = template
     main.setMainStore('perfetto_selectedTemplate', template)
-    // CUSTOM keeps the user's current selection untouched.
+    // CUSTOM keeps the user's current selection untouched. Non-CUSTOM
+    // templates fully define the capture config — atrace categories AND
+    // ftrace probes — so the panel state matches what the template captures.
     if (template !== 'CUSTOM') {
       this.selectedEvents = [...TRACE_TEMPLATE_DEFAULT_EVENTS[template]]
+      this.selectedProbes = [...TRACE_TEMPLATE_DEFAULT_PROBES[template]]
       main.setMainStore('perfetto_selectedEvents', [...this.selectedEvents])
+      main.setMainStore('perfetto_selectedProbes', [...this.selectedProbes])
     }
   }
   setGroupEvents(events: string[]) {
@@ -219,15 +250,57 @@ export class Perfetto {
     this.syncTemplateFromSelection()
     main.setMainStore('perfetto_selectedEvents', [...this.selectedEvents])
   }
-  // If the current selection no longer matches any preset, fall back the
-  // highlighted template to CUSTOM so the chips stay truthful.
+  // Toggle a ftrace probe. Probes are part of the template definition, so
+  // toggling participates in template matching: a probe change that no longer
+  // matches any preset falls the highlighted template back to CUSTOM.
+  toggleProbe(probeId: string) {
+    const idx = this.selectedProbes.indexOf(probeId)
+    if (idx >= 0) {
+      this.selectedProbes.splice(idx, 1)
+    } else {
+      this.selectedProbes.push(probeId)
+    }
+    this.syncTemplateFromSelection()
+    main.setMainStore('perfetto_selectedProbes', [...this.selectedProbes])
+  }
+  // Select / clear all probes (global controls, mirroring the atrace all/clear).
+  setAllProbes() {
+    this.selectedProbes = FTRACE_PROBES.map((p) => p.id)
+    this.syncTemplateFromSelection()
+    main.setMainStore('perfetto_selectedProbes', [...this.selectedProbes])
+  }
+  clearAllProbes() {
+    this.selectedProbes = []
+    this.syncTemplateFromSelection()
+    main.setMainStore('perfetto_selectedProbes', [])
+  }
+  // Select / clear a probe group (mirrors atrace setGroupEvents/clearGroupEvents).
+  setGroupProbes(probeIds: string[]) {
+    const next = new Set(this.selectedProbes)
+    for (const id of probeIds) next.add(id)
+    this.selectedProbes = Array.from(next)
+    this.syncTemplateFromSelection()
+    main.setMainStore('perfetto_selectedProbes', [...this.selectedProbes])
+  }
+  clearGroupProbes(probeIds: string[]) {
+    const next = this.selectedProbes.filter((id) => !probeIds.includes(id))
+    this.selectedProbes = next
+    this.syncTemplateFromSelection()
+    main.setMainStore('perfetto_selectedProbes', [...this.selectedProbes])
+  }
+  // If the current atrace categories + probes no longer match any preset,
+  // fall back the highlighted template to CUSTOM so the chips stay truthful.
   syncTemplateFromSelection() {
-    const sorted = [...this.selectedEvents].sort().join(',')
+    const sig = `${[...this.selectedEvents].sort().join(',')}|${[
+      ...this.selectedProbes,
+    ].sort().join(',')}`
     const matchPreset = (TRACE_TEMPLATES as PerfettoTraceTemplate[]).some(
       (tpl) => {
         if (tpl === 'CUSTOM') return false
-        const preset = [...TRACE_TEMPLATE_DEFAULT_EVENTS[tpl]].sort().join(',')
-        return preset === sorted
+        const presetSig = `${[
+          ...TRACE_TEMPLATE_DEFAULT_EVENTS[tpl],
+        ].sort().join(',')}|${[...TRACE_TEMPLATE_DEFAULT_PROBES[tpl]].sort().join(',')}`
+        return presetSig === sig
       },
     )
     if (!matchPreset && this.selectedTemplate !== 'CUSTOM') {
@@ -328,6 +401,44 @@ export const ALL_ATRACE_CATEGORIES = [
   'memory',
   'thermal',
 ]
+
+// Selectable ftrace probes, mirroring the official Perfetto Record UI probe
+// pages (ui/src/plugins/dev.perfetto.RecordTraceV2/pages/*.ts). Each probe id
+// contributes a fixed ftrace_events bundle (and some a companion data source)
+// in buildTraceConfigText. `group` drives the UI grouping; `titleKey` is the
+// i18n label. Probes are orthogonal to atrace categories — toggling a template
+// never touches probe selection (see syncTemplateFromSelection).
+export interface FtraceProbe {
+  id: string
+  group: 'cpu' | 'gpu' | 'power' | 'memory' | 'network'
+  titleKey: string
+}
+
+export const FTRACE_PROBES: FtraceProbe[] = [
+  { id: 'cpu_sched', group: 'cpu', titleKey: 'probeCpuSched' },
+  { id: 'cpu_freq', group: 'cpu', titleKey: 'probeCpuFreq' },
+  { id: 'cpu_usage', group: 'cpu', titleKey: 'probeCpuUsage' },
+  { id: 'cpu_syscalls', group: 'cpu', titleKey: 'probeCpuSyscalls' },
+  { id: 'gpu_frequency', group: 'gpu', titleKey: 'probeGpuFrequency' },
+  { id: 'gpu_memory', group: 'gpu', titleKey: 'probeGpuMemory' },
+  { id: 'gpu_work_period', group: 'gpu', titleKey: 'probeGpuWorkPeriod' },
+  { id: 'power_voltages', group: 'power', titleKey: 'probePowerVoltages' },
+  { id: 'mem_hifreq', group: 'memory', titleKey: 'probeMemHifreq' },
+  { id: 'mem_lmk', group: 'memory', titleKey: 'probeMemLmk' },
+  { id: 'wifi_network_tracing', group: 'network', titleKey: 'probeWifiNetwork' },
+]
+
+export const FTRACE_PROBE_GROUPS: { key: string; group: FtraceProbe['group'] }[] = [
+  { key: 'grpProbesCpu', group: 'cpu' },
+  { key: 'grpProbesGpu', group: 'gpu' },
+  { key: 'grpProbesPower', group: 'power' },
+  { key: 'grpProbesMemory', group: 'memory' },
+  { key: 'grpProbesNetwork', group: 'network' },
+]
+
+// Default probe selection — aligns a default capture with the official Perfetto
+// "Default" preset's ftrace base (cpu_sched + cpu_freq + cpu_usage).
+export const DEFAULT_PROBES = ['cpu_sched', 'cpu_freq', 'cpu_usage']
 
 // Logical grouping of atrace categories, mirroring the PerfettoProbeGroup
 // layout from AndroidPerformanceStudio's data-sources panel.

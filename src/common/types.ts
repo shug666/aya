@@ -186,6 +186,7 @@ export interface IPerfettoTraceConfig {
   app: string
   traceAllApps: boolean
   noOpen: boolean
+  probes?: string[]
 }
 
 export type IpcStartPerfettoTrace = (
